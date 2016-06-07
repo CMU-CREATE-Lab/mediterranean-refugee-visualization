@@ -1,0 +1,207 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Refugees by Mediterranean Sea</title>
+    <style type="text/css">
+        html, body, #map-div {
+              margin: 0;
+              padding: 0;
+              height: 100%;
+              font-family: monospace;
+        }
+        
+        #map-div{
+            position: absolute; 
+            top: 0px; 
+            width: 100%; 
+            height: calc(100% - 55px);
+        }
+        
+        #time-slider{
+            position: absolute;  
+            bottom: 0px; 
+            width: 100%; 
+            height: 56px; 
+            background-color: rgb(30,30,30);
+        }
+        
+        #play-button{
+            position: relative;
+            float: left;
+            width: 50px;
+            height: 50px;
+            background-color: rgb(180,180,180);
+            border-bottom: 5px solid black;
+        }
+        
+        .year{
+            position: relative;
+            float: left;
+            width: calc((100% - 50px)/3);
+            height: 50px;
+            /**background-color: blue;**/
+            text-align: center;
+        }
+        
+        .year > p{
+            position: relative; 
+            margin-top: 30px; 
+            text-align: center;
+            font-size: 13px;
+            color: white;
+        }
+        
+        .month{
+            height: 50%;
+            width: calc(100%/12);
+            background-color: rgb(80,80,80);
+            float: left;
+        }
+        
+        .month:hover{
+            background-color: rgb(120,120,120);
+        }
+        
+        .month > p{
+            margin-top: 1px;
+            color: white;
+        }
+    </style>
+
+    <script src="http://maps.googleapis.com/maps/api/js"></script>
+    <script type="text/javascript" src="js/CanvasLayer.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+
+    <script>
+      var map;
+      var canvasLayer;
+      var context;
+
+      var rectLatLng = new google.maps.LatLng(40, -95);
+      var rectWidth = 6.5;
+
+      var resolutionScale = window.devicePixelRatio || 1;
+
+      function init() {
+        // initialize the map
+        var mapOptions = {
+          zoom: 4,
+          center: new google.maps.LatLng(34.17497, 22.09833),
+          mapTypeId: google.maps.MapTypeId.TERRAIN,
+          styles: [{"featureType":"all","elementType":"all","stylers":[{"saturation":-100}]},{"featureType":"water","elementType":"geometry.fill","stylers":[{"color":"#248f8f"}]},{"featureType":"road","elementType":"all","stylers":[{"visibility":"off"}]},{"featureType":"administrative.province","elementType":"all","stylers":[{"visibility":"simplified"}]},{"featureType":"administrative.locality","elementType":"all","stylers":[{"visibility":"simplified"}]},{"featureType":"landscape.natural","elementType":"geometry.fill","stylers":[{"color":"#c4c4c4"}]}]
+        };
+        var mapDiv = document.getElementById('map-div');
+        map = new google.maps.Map(mapDiv, mapOptions);
+
+        // initialize the canvasLayer
+        var canvasLayerOptions = {
+          map: map,
+          resizeHandler: resize,
+          animate: false,
+          updateHandler: update,
+          resolutionScale: resolutionScale
+        };
+        canvasLayer = new CanvasLayer(canvasLayerOptions);
+        context = canvasLayer.canvas.getContext('2d');
+      }
+
+      function resize() {
+        // nothing to do here
+      }
+
+      function update() {
+        // clear previous canvas contents
+        var canvasWidth = canvasLayer.canvas.width;
+        var canvasHeight = canvasLayer.canvas.height;
+        context.clearRect(0, 0, canvasWidth, canvasHeight);
+
+        // we like our rectangles hideous
+        context.fillStyle = 'rgba(230, 77, 26, 1)';
+        
+        /* We need to scale and translate the map for current view.
+         * see https://developers.google.com/maps/documentation/javascript/maptypes#MapCoordinates
+         */
+        var mapProjection = map.getProjection();
+
+        /**
+         * Clear transformation from last update by setting to identity matrix.
+         * Could use context.resetTransform(), but most browsers don't support
+         * it yet.
+         */
+        context.setTransform(1, 0, 0, 1, 0, 0);
+        
+        // scale is just 2^zoom
+        // If canvasLayer is scaled (with resolutionScale), we need to scale by
+        // the same amount to account for the larger canvas.
+        var scale = Math.pow(2, map.zoom) * resolutionScale;
+        context.scale(scale, scale);
+
+        /* If the map was not translated, the topLeft corner would be 0,0 in
+         * world coordinates. Our translation is just the vector from the
+         * world coordinate of the topLeft corder to 0,0.
+         */
+        var offset = mapProjection.fromLatLngToPoint(canvasLayer.getTopLeft());
+        context.translate(-offset.x, -offset.y);
+
+        // project rectLatLng to world coordinates and draw
+        var worldPoint = mapProjection.fromLatLngToPoint(rectLatLng);
+
+
+        context.fillRect(worldPoint.x, worldPoint.y, rectWidth, rectWidth);
+      }
+
+      document.addEventListener('DOMContentLoaded', init, false);
+    </script>
+  </head>
+  <body>
+    <div id="map-div"></div>
+    <div id="time-slider">
+        <div id="play-button"></div>
+        <div class="year" id="y2014" style="border-top: 6px solid #44d7a8">
+            <div class="month" id="Jan14"><p>Jan</p></div>
+            <div class="month" id="Feb14"><p>Feb</p></div>
+            <div class="month" id="Mar14"><p>Mar</p></div>
+            <div class="month" id="Apr14"><p>Apr</p></div>
+            <div class="month" id="May14"><p>May</p></div>
+            <div class="month" id="Jun14"><p>Jun</p></div>
+            <div class="month" id="Jul14"><p>Jul</p></div>
+            <div class="month" id="Aug14"><p>Aug</p></div>
+            <div class="month" id="Sep14"><p>Sep</p></div>
+            <div class="month" id="Oct14"><p>Oct</p></div>
+            <div class="month" id="Nov14"><p>Nov</p></div>
+            <div class="month" id="Dec14"><p>Dec</p></div>
+            <p>2014</p>
+        </div>
+        <div class="year" id="y2015" style="border-top: 6px solid #44bdd7">
+            <div class="month" id="Jan15"><p>Jan</p></div>
+            <div class="month" id="Feb15"><p>Feb</p></div>
+            <div class="month" id="Mar15"><p>Mar</p></div>
+            <div class="month" id="Apr15"><p>Apr</p></div>
+            <div class="month" id="May15"><p>May</p></div>
+            <div class="month" id="Jun15"><p>Jun</p></div>
+            <div class="month" id="Jul15"><p>Jul</p></div>
+            <div class="month" id="Aug15"><p>Aug</p></div>
+            <div class="month" id="Sep15"><p>Sep</p></div>
+            <div class="month" id="Oct15"><p>Oct</p></div>
+            <div class="month" id="Nov15"><p>Nov</p></div>
+            <div class="month" id="Dec15"><p>Dec</p></div>
+            <p>2015</p>
+        </div>
+        <div class="year" id="y2016" style="border-top: 6px solid #d74473">
+            <div class="month" id="Jan16"><p>Jan</p></div>
+            <div class="month" id="Feb16"><p>Feb</p></div>
+            <div class="month" id="Mar16"><p>Mar</p></div>
+            <div class="month" id="Apr16"><p>Apr</p></div>
+            <div class="month" id="May16"><p>May</p></div>
+            <div class="month" id="Jun16"><p>Jun</p></div>
+            <div class="month" id="Jul16"><p>Jul</p></div>
+            <div class="month" id="Aug16"><p>Aug</p></div>
+            <div class="month" id="Sep16"><p>Sep</p></div>
+            <div class="month" id="Oct16"><p>Oct</p></div>
+            <div class="month" id="Nov16"><p>Nov</p></div>
+            <div class="month" id="Dec16"><p>Dec</p></div>
+            <p>2016</p>
+        </div>
+      </div>
+  </body>
+</html>
