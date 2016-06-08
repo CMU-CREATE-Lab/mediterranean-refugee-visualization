@@ -9,6 +9,16 @@
               height: 100%;
               font-family: monospace;
         }
+
+        .noselect {
+          -webkit-touch-callout: none; /* iOS Safari */
+          -webkit-user-select: none;   /* Chrome/Safari/Opera */
+          -khtml-user-select: none;    /* Konqueror */
+          -moz-user-select: none;      /* Firefox */
+          -ms-user-select: none;       /* Internet Explorer/Edge */
+          user-select: none;           /* Non-prefixed version, currently
+                                          not supported by any browser */
+        }
         
         #map-div{
             position: absolute; 
@@ -24,14 +34,85 @@
             height: 56px; 
             background-color: rgb(30,30,30);
         }
+
+        .cursor{
+          background-color: rgb(160,160,160) !important;
+        }
+        
+        .trapezoid {
+          border-bottom: 25px solid rgba(255,10,10,.5);
+          border-left: 15px solid transparent;
+          border-right: 15px solid transparent;
+          height: 0;
+          width: 7px;
+          transform: scaleY(-1) translateY(-6px);
+        }
+
+        .bar{
+          margin-left: 15px;
+          width: 7px;
+          height: 45%;
+          background-color: rgba(255,10,10,.5);
+          transform: translateY(23%);
+        }
         
         #play-button{
             position: relative;
             float: left;
             width: 50px;
             height: 50px;
-            background-color: rgb(180,180,180);
-            border-bottom: 5px solid black;
+            background-color: rgb(30,30,30);
+            border-bottom: 5px rgb(30,30,30);
+        }
+
+        #circle{
+            position: absolute;
+            width: 70%;
+            height: 70%;
+            -moz-border-radius: 50px/50px;
+            -webkit-border-radius: 50px 50px;
+            border-radius: 50px/50px;
+            border:solid 2px rgb(130,130,130);
+            top: 60%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: background-color .3s;
+        }
+
+        #circle:hover{
+            background-color: rgb(100,100,100);
+            cursor: pointer;
+        }
+
+        #circle:hover > .play{
+          border-left: 12px solid rgb(30,30,30);
+        }
+
+        #circle:hover > .pause{
+          background-color: rgb(30,30,30);
+        }
+
+        .play{
+            position: absolute;
+            width: 0; 
+            height: 0; 
+            border-top: 12px solid transparent;
+            border-bottom: 12px solid transparent;
+            border-left: 12px solid rgb(130,130,130);
+            top: 50%;
+            left: 54%;
+            transform: translate(-50%, -50%);
+        }
+
+        .pause{
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background-color: rgb(130,130,130);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 1px solid black;
         }
         
         .year{
@@ -54,16 +135,18 @@
         .month{
             height: 50%;
             width: calc(100%/12);
-            background-color: rgb(80,80,80);
+            background-color: rgb(50,50,50);
             float: left;
+            transition: background-color .3s;
         }
         
         .month:hover{
-            background-color: rgb(120,120,120);
+            background-color: rgb(100,100,100);
+            cursor: pointer;
         }
         
         .month > p{
-            margin-top: 1px;
+            margin-top: 4px;
             color: white;
         }
     </style>
@@ -72,7 +155,7 @@
     <script type="text/javascript" src="js/CanvasLayer.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
 
-    <script>
+    <script type="text/javascript">
       var map;
       var canvasLayer;
       var context;
@@ -82,7 +165,81 @@
 
       var resolutionScale = window.devicePixelRatio || 1;
 
+      var mouseDown = false;
+
+      function Date_M_Y(month, year){
+        this.month = month;
+        this.year = year;
+      }
+
+      var playing = true;
+      var player = null;
+
+      var currentDate = new Date_M_Y(1, 2014);
+
+      function upDate(){
+        currentDate = new Date_M_Y($('.cursor').data('month'), $('.cursor').parent().data('year'));
+      }
+
+      function togglePlayPause(){
+        playing = !playing;
+         $('#circle').children().toggleClass('play').toggleClass('pause');
+        if(playing){
+          pause();
+        }else{
+          play();
+        }
+      }
+
+      function incrementMonth(){
+        var currentCursorIndex = $('.cursor').index('.month');
+        if(currentCursorIndex < 0 || currentCursorIndex + 1 == $('.month').length){
+          $('.month').removeClass('cursor');
+          $('.month').eq(0).addClass('cursor');
+          upDate();
+        }else{
+          $('.month').removeClass('cursor');
+          $('.month').eq(currentCursorIndex+1).addClass('cursor');
+          upDate();
+        }
+      }
+
+      function play(){
+        player = window.setInterval(incrementMonth, 300);
+      }
+
+      function pause(){
+        window.clearInterval(player);
+        player = null;
+      }
+
       function init() {
+        $('#circle').click(togglePlayPause);
+        $('.month').on("mousedown", function(event){
+                mouseDown = true;
+                $('.month').removeClass('cursor');
+                $(this).addClass('cursor');
+                upDate();
+                console.log("haha");
+        })
+        .on("mousemove", function(event){
+          if(mouseDown){
+            $('.month').removeClass('cursor');
+            $(this).addClass('cursor');
+            upDate();
+          }
+        })
+        .on("mouseup", function(){
+              mouseDown = false;
+        })
+        .addClass('noselect');
+
+
+        $('.year').addClass('noselect');
+
+        $('document').on("mouseup", function(){
+              mouseDown = false;
+        })
         // initialize the map
         var mapOptions = {
           zoom: 4,
@@ -156,50 +313,54 @@
   <body>
     <div id="map-div"></div>
     <div id="time-slider">
-        <div id="play-button"></div>
-        <div class="year" id="y2014" style="border-top: 6px solid #44d7a8">
-            <div class="month" id="Jan14"><p>Jan</p></div>
-            <div class="month" id="Feb14"><p>Feb</p></div>
-            <div class="month" id="Mar14"><p>Mar</p></div>
-            <div class="month" id="Apr14"><p>Apr</p></div>
-            <div class="month" id="May14"><p>May</p></div>
-            <div class="month" id="Jun14"><p>Jun</p></div>
-            <div class="month" id="Jul14"><p>Jul</p></div>
-            <div class="month" id="Aug14"><p>Aug</p></div>
-            <div class="month" id="Sep14"><p>Sep</p></div>
-            <div class="month" id="Oct14"><p>Oct</p></div>
-            <div class="month" id="Nov14"><p>Nov</p></div>
-            <div class="month" id="Dec14"><p>Dec</p></div>
+        <div id="play-button">
+          <div id="circle">
+            <div class="play"></div>
+          </div>
+        </div>
+        <div class="year" id="y2014" data-year="2014" style="border-top: 6px solid rgb(68, 215, 168); background-color:rgba(68, 215, 168, .5)">
+            <div class="month cursor" id="Jan14" data-month="1"><p>Jan</p></div>
+            <div class="month" id="Feb14" data-month="2"><p>Feb</p></div>
+            <div class="month" id="Mar14" data-month="3"><p>Mar</p></div>
+            <div class="month" id="Apr14" data-month="4"><p>Apr</p></div>
+            <div class="month" id="May14" data-month="5"><p>May</p></div>
+            <div class="month" id="Jun14" data-month="6"><p>Jun</p></div>
+            <div class="month" id="Jul14" data-month="7"><p>Jul</p></div>
+            <div class="month" id="Aug14" data-month="8"><p>Aug</p></div>
+            <div class="month" id="Sep14" data-month="9"><p>Sep</p></div>
+            <div class="month" id="Oct14" data-month="10"><p>Oct</p></div>
+            <div class="month" id="Nov14" data-month="11"><p>Nov</p></div>
+            <div class="month" id="Dec14" data-month="12"><p>Dec</p></div>
             <p>2014</p>
         </div>
-        <div class="year" id="y2015" style="border-top: 6px solid #44bdd7">
-            <div class="month" id="Jan15"><p>Jan</p></div>
-            <div class="month" id="Feb15"><p>Feb</p></div>
-            <div class="month" id="Mar15"><p>Mar</p></div>
-            <div class="month" id="Apr15"><p>Apr</p></div>
-            <div class="month" id="May15"><p>May</p></div>
-            <div class="month" id="Jun15"><p>Jun</p></div>
-            <div class="month" id="Jul15"><p>Jul</p></div>
-            <div class="month" id="Aug15"><p>Aug</p></div>
-            <div class="month" id="Sep15"><p>Sep</p></div>
-            <div class="month" id="Oct15"><p>Oct</p></div>
-            <div class="month" id="Nov15"><p>Nov</p></div>
-            <div class="month" id="Dec15"><p>Dec</p></div>
+        <div class="year" id="y2015" data-year="2015" style="border-top: 6px solid rgb(68, 189, 215); background-color:rgba(68, 189, 215, .5)">
+            <div class="month" id="Jan15" data-month="1"><p>Jan</p></div>
+            <div class="month" id="Feb15" data-month="2"><p>Feb</p></div>
+            <div class="month" id="Mar15" data-month="3"><p>Mar</p></div>
+            <div class="month" id="Apr15" data-month="4"><p>Apr</p></div>
+            <div class="month" id="May15" data-month="5"><p>May</p></div>
+            <div class="month" id="Jun15" data-month="6"><p>Jun</p></div>
+            <div class="month" id="Jul15" data-month="7"><p>Jul</p></div>
+            <div class="month" id="Aug15" data-month="8"><p>Aug</p></div>
+            <div class="month" id="Sep15" data-month="9"><p>Sep</p></div>
+            <div class="month" id="Oct15" data-month="10"><p>Oct</p></div>
+            <div class="month" id="Nov15" data-month="11"><p>Nov</p></div>
+            <div class="month" id="Dec15" data-month="12"><p>Dec</p></div>
             <p>2015</p>
         </div>
-        <div class="year" id="y2016" style="border-top: 6px solid #d74473">
-            <div class="month" id="Jan16"><p>Jan</p></div>
-            <div class="month" id="Feb16"><p>Feb</p></div>
-            <div class="month" id="Mar16"><p>Mar</p></div>
-            <div class="month" id="Apr16"><p>Apr</p></div>
-            <div class="month" id="May16"><p>May</p></div>
-            <div class="month" id="Jun16"><p>Jun</p></div>
-            <div class="month" id="Jul16"><p>Jul</p></div>
-            <div class="month" id="Aug16"><p>Aug</p></div>
-            <div class="month" id="Sep16"><p>Sep</p></div>
-            <div class="month" id="Oct16"><p>Oct</p></div>
-            <div class="month" id="Nov16"><p>Nov</p></div>
-            <div class="month" id="Dec16"><p>Dec</p></div>
+        <div class="year" id="y2016" data-year="2016" style="border-top: 6px solid rgb(215, 68, 115); background-color:rgba(215, 68, 115, .5)">
+            <div class="month" id="Jan16" data-month="1"><p>Jan</p></div>
+            <div class="month" id="Feb16" data-month="2"><p>Feb</p></div>
+            <div class="month" id="Mar16" data-month="3"><p>Mar</p></div>
+            <div class="month" id="Apr16" data-month="4"><p>Apr</p></div>
+            <div class="month" id="May16" data-month="5"><p>May</p></div>
+            <div class="month" id="Jun16" data-month="6"><p>Jun</p></div>
+            <div class="month" id="Jul16" data-month="7"><p>Jul</p></div>
+            <div class="month" id="Aug16" data-month="8"><p>Aug</p></div>
+            <div class="month" id="Sep16" data-month="9"><p>Sep</p></div>
+            <div class="month" id="Oct16" data-month="10"><p>Oct</p></div>
+            <div class="month" id="Nov16" data-month="11"><p>Nov</p></div>
+            <div class="month" id="Dec16" data-month="12"><p>Dec</p></div>
             <p>2016</p>
         </div>
       </div>

@@ -1,0 +1,10 @@
+Visualization
+- Generate JSON files with geodata 
+- Link that with canvas and draw circles indicating change
+- Draw paths between countries
+- WebGl particles between them
+
+UI
+- When selecting a month, highlights months in between for cool effect
+- Dragging on the months also selects them
+
