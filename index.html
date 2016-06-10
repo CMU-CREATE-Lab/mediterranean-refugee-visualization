@@ -135,12 +135,16 @@
         .month{
             height: 50%;
             width: calc(100%/12);
-            background-color: rgb(50,50,50);
+            background-color: rgb(20,20,20);
             float: left;
             transition: background-color .3s;
         }
         
-        .month:hover{
+        .valid{
+            background-color: rgb(60,60,60);
+        }
+        
+        .valid:hover{
             background-color: rgb(100,100,100);
             cursor: pointer;
         }
@@ -159,32 +163,51 @@
       var map;
       var canvasLayer;
       var context;
-
-      var rectLatLng = new google.maps.LatLng(40, -95);
-      var rectWidth = 6.5;
-
-      var resolutionScale = window.devicePixelRatio || 1;
-
-      var mouseDown = false;
-
+        
       function Date_M_Y(month, year){
         this.month = month;
         this.year = year;
       }
+        
+      var refugees = {
+        geo_url: './geo_data/geo_data.json',
+        draw_url: './json_store/processed_data.json',
+        ready: true,
+        geo_data: {},
+        draw_data: {},
+        prev_shown: {},
+        path_data: {},
+      };
+        
+      var playBack = {
+          playing: true,
+          player: null,
+          mouseDown: false,
+      }
+      
+      var drawBack = {
+          MAX_RADIUS: 3,
+          BASE_RADIUS: .5,
+          BASE_STROKE: .25,
+          MAX_AMOUNT: 15000,
+          origin_interpolate: 25,
+          asylum_interpolate: 10,
+          largestValue: {},
+          largestOfAll: 0,
+      }
 
-      var playing = true;
-      var player = null;
-
-      var currentDate = new Date_M_Y(1, 2014);
+      var resolutionScale = window.devicePixelRatio || 1;
 
       function upDate(){
-        currentDate = new Date_M_Y($('.cursor').data('month'), $('.cursor').parent().data('year'));
+        refugees.currentDate = new Date_M_Y($('.cursor').data('month'), $('.cursor').parent().data('year'));
+        if (!canvasLayer.isAnimated())
+            update();
       }
 
       function togglePlayPause(){
-        playing = !playing;
+        playBack.playing = !playBack.playing;
          $('#circle').children().toggleClass('play').toggleClass('pause');
-        if(playing){
+        if(playBack.playing){
           pause();
         }else{
           play();
@@ -192,74 +215,145 @@
       }
 
       function incrementMonth(){
-        var currentCursorIndex = $('.cursor').index('.month');
-        if(currentCursorIndex < 0 || currentCursorIndex + 1 == $('.month').length){
-          $('.month').removeClass('cursor');
-          $('.month').eq(0).addClass('cursor');
+        var currentCursorIndex = $('.cursor').index('.valid');
+        if(currentCursorIndex < 0 || currentCursorIndex + 1 == $('.valid').length){
+          $('.valid').removeClass('cursor');
+          $('.valid').eq(0).addClass('cursor');
           upDate();
         }else{
-          $('.month').removeClass('cursor');
-          $('.month').eq(currentCursorIndex+1).addClass('cursor');
+          $('.valid').removeClass('cursor');
+          $('.valid').eq(currentCursorIndex+1).addClass('cursor');
           upDate();
         }
       }
 
       function play(){
-        player = window.setInterval(incrementMonth, 300);
+        playBack.player = window.setInterval(incrementMonth, 300);
       }
 
       function pause(){
-        window.clearInterval(player);
-        player = null;
+        window.clearInterval(playBack.player);
+        playBack.player = null;
       }
-
-      function init() {
-        $('#circle').click(togglePlayPause);
-        $('.month').on("mousedown", function(event){
-                mouseDown = true;
-                $('.month').removeClass('cursor');
-                $(this).addClass('cursor');
-                upDate();
-                console.log("haha");
-        })
-        .on("mousemove", function(event){
-          if(mouseDown){
-            $('.month').removeClass('cursor');
-            $(this).addClass('cursor');
-            upDate();
+        
+      function load(url, handler) {
+        //console.log("Loading...");
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', url);
+        xhr.responseType = 'json';
+        xhr.onload = function() {
+          handler(this.response)
+        }
+        xhr.send();
+      }
+        
+      function geo_handler(json_data){
+          prev_shown_origin = {};
+          prev_shown_asylum = {};
+          for(var key in json_data.origin_geo){
+              var lat_long = json_data.origin_geo[key];
+              json_data.origin_geo[key] = new google.maps.LatLng(lat_long.lat, lat_long.lon);
+              prev_shown_origin[key] = 0;
           }
-        })
-        .on("mouseup", function(){
-              mouseDown = false;
-        })
-        .addClass('noselect');
-
-
-        $('.year').addClass('noselect');
-
-        $('document').on("mouseup", function(){
-              mouseDown = false;
-        })
-        // initialize the map
-        var mapOptions = {
-          zoom: 4,
-          center: new google.maps.LatLng(34.17497, 22.09833),
-          mapTypeId: google.maps.MapTypeId.TERRAIN,
-          styles: [{"featureType":"all","elementType":"all","stylers":[{"saturation":-100}]},{"featureType":"water","elementType":"geometry.fill","stylers":[{"color":"#248f8f"}]},{"featureType":"road","elementType":"all","stylers":[{"visibility":"off"}]},{"featureType":"administrative.province","elementType":"all","stylers":[{"visibility":"simplified"}]},{"featureType":"administrative.locality","elementType":"all","stylers":[{"visibility":"simplified"}]},{"featureType":"landscape.natural","elementType":"geometry.fill","stylers":[{"color":"#c4c4c4"}]}]
+          
+          for(var key in json_data.asylum_geo){
+              var lat_long = json_data.asylum_geo[key];
+              json_data.asylum_geo[key] = new google.maps.LatLng(lat_long.lat, lat_long.lon);
+              prev_shown_asylum[key] = 0;
+          }
+          
+          refugees.geo_data = json_data;
+          refugees.prev_shown.origin = prev_shown_origin;
+          refugees.prev_shown.asylum = prev_shown_asylum;
+          console.log(refugees.geo_data, refugees.prev_shown);
+      }
+        
+      function draw_handler(json_data){
+          refugees.currentDate = new Date_M_Y(1,2014);
+          $('#m1y2014').addClass('cursor');
+          var dx_data = $.extend(true, {}, json_data);
+          for(var asyl_country in json_data){
+              console.log(asyl_country);
+              var years_data = json_data[asyl_country];
+              for (var year in years_data){
+                  if(!(year in drawBack.largestValue)){
+                      drawBack.largestValue[year] = {};
+                  }
+                  var year_data = years_data[year];
+                  for (var month in year_data){
+                      if(!(month in drawBack.largestValue[year])){
+                          drawBack.largestValue[year][month] = 0;
+                      }
+                      $('#m'+month+'y'+year).addClass('valid');
+                      var origin_countries = year_data[month];
+                      var total = 0;
+                      for(var or_key in origin_countries){
+                          var currentVal = json_data[asyl_country][year][month][or_key];
+                          if(month != 1 || year != 2014){
+                              var prevVal = (month == 1) ? 
+                                  json_data[asyl_country][year-1][12][or_key] : dx_data[asyl_country][year][month-1][or_key]
+                              dx_data[asyl_country][year][month][or_key] = currentVal - prevVal;
+                          }
+                          total += currentVal;
+                          currentLargest = drawBack.largestValue[year][month];
+                          drawBack.largestValue[year][month] = (currentVal > currentLargest) ? currentVal : currentLargest;
+                      }
+                      currentLargest = drawBack.largestValue[year][month];
+                      drawBack.largestValue[year][month] = (total > currentLargest) ? total : currentLargest;
+                  }
+              }
+          }
+          
+          var largestOfAll = 0;
+          for(var year in drawBack.largestValue){
+              for (var month in drawBack.largestValue[year]){
+                  var value = drawBack.largestValue[year][month];
+                  largestOfAll = (value > largestOfAll) ? value : largestOfAll;
+              }
+          }
+          
+          drawBack.largestValue["largestOfAll"] = largestOfAll;
+          
+          refugees.draw_data.raw = json_data;
+          refugees.draw_data.derivative = dx_data;
+          console.log(refugees.draw_data, drawBack.largestValue);
+      }
+      
+      Number.prototype.clamp = function(min, max) {
+         return Math.min(Math.max(this, min), max);
+       };
+      
+      function convert_to_radius(amount){
+          amount = amount.clamp(0, drawBack.MAX_AMOUNT)
+          return .025*Math.sqrt(amount);
+      }
+        
+      function interpolateColors(r1, g1, b1, r2, g2, b2, min, max, val){
+          var t = (val - min)/(max - min); 
+          return {r:(1 - t)*r1 + t*r2, g:(1 - t)*g1 + t*g2,b:(1 - t)*b1 + t*b2}
+      }
+      String.prototype.format = function () {
+          var args = [].slice.call(arguments);
+              return this.replace(/(\{\d+\})/g, function (a){
+                  return args[+(a.substr(1,a.length-2))||0];
+              });
         };
-        var mapDiv = document.getElementById('map-div');
-        map = new google.maps.Map(mapDiv, mapOptions);
-
-        // initialize the canvasLayer
-        var canvasLayerOptions = {
-          map: map,
-          resizeHandler: resize,
-          animate: false,
-          updateHandler: update,
-          resolutionScale: resolutionScale
-        };
-        canvasLayer = new CanvasLayer(canvasLayerOptions);
-        context = canvasLayer.canvas.getContext('2d');
+        
+      function convert_to_color(amount){
+          var color = (amount >= 0) ? 
+              {r: 0, g:255, b:0} : {r: 255, g:0, b:0};
+          var alpha = (amount == 0) ? 0 : .1;
+          return "rgba({0},{1},{2}, {3})".format(color.r, color.g, color.b, alpha);
+      }
+        
+      function drawPath(context, start, end, data){
+        //Drawing path
+        context.beginPath();
+        context.moveTo(start.x, start.y);
+        context.lineTo(end.x, end.y);
+        context.lineWidth = .25;
+        context.strokeStyle = convert_to_color(data);
+        context.stroke();
       }
 
       function resize() {
@@ -271,10 +365,7 @@
         var canvasWidth = canvasLayer.canvas.width;
         var canvasHeight = canvasLayer.canvas.height;
         context.clearRect(0, 0, canvasWidth, canvasHeight);
-
-        // we like our rectangles hideous
-        context.fillStyle = 'rgba(230, 77, 26, 1)';
-        
+   
         /* We need to scale and translate the map for current view.
          * see https://developers.google.com/maps/documentation/javascript/maptypes#MapCoordinates
          */
@@ -299,12 +390,192 @@
          */
         var offset = mapProjection.fromLatLngToPoint(canvasLayer.getTopLeft());
         context.translate(-offset.x, -offset.y);
+           
+        //origins
+        origin_geo = refugees.geo_data.origin_geo;
+        asylum_geo = refugees.geo_data.asylum_geo;
+        circle_data = refugees.draw_data.raw;
+        path_data = refugees.draw_data.derivative;
+        var month = refugees.currentDate.month;
+        var year = refugees.currentDate.year;
+          
+          
+        //origin
+        for(var or_key in origin_geo){
+            var radius = drawBack.BASE_RADIUS;
+            var error = false;
+            var originPoint = mapProjection.fromLatLngToPoint(origin_geo[or_key]);
+            for(var asyl_country in circle_data){
+                var asylumPoint = mapProjection.fromLatLngToPoint(asylum_geo[asyl_country]);
+                if(month in circle_data[asyl_country][year] 
+                   && or_key in circle_data[asyl_country][year][month]){
+                    var currentAmount = circle_data[asyl_country][year][month][or_key] || 0;
+                    var prevAmount = refugees.prev_shown["origin"][or_key];
+                    
+                    var interpolated_raw = (currentAmount == prevAmount) ? 
+                        currentAmount : prevAmount + Math.ceil((currentAmount - prevAmount)/drawBack.origin_interpolate);
+                    radius += convert_to_radius(interpolated_raw);
+                    refugees.prev_shown["origin"][or_key] = interpolated_raw;
+                    drawPath(context, originPoint, asylumPoint, path_data[asyl_country][year][month][or_key]);
+                }else if(!(month in circle_data[asyl_country][year])){
+                    radius = .25;
+                    error = true;
+                } 
+            }
+            radius = (radius < 0) ? .1 : radius;
+            
+            if(!error){
+                context.fillStyle = 'rgba(68, 116, 215, .3)';
+                context.strokeStyle = 'rgb(68, 116, 215)';
+            }else{
+                context.fillStyle = 'rgba(180, 180, 180, .3)';
+                 context.strokeStyle = 'rgb(180, 180, 180)';
+            }
+             //draws circle at origin country
+            context.beginPath();
+            context.arc(originPoint.x, originPoint.y,radius, 0, 2 * Math.PI, false);
+            context.fill();
+            context.lineWidth = drawBack.BASE_STROKE;
+            context.stroke();
+        }
+          
+        //asylum
+        for(var asyl_country in circle_data){
+            var radius = drawBack.BASE_RADIUS;
+            origin_countries = circle_data[asyl_country][year][month]
+            var total = 0;
+            for (var country in origin_countries){
+                total += (origin_countries[country] || 0)
+            }
+            var prevTotal = refugees.prev_shown["asylum"][asyl_country];
+            var interpolated_raw = (total == prevTotal) ? 
+                        total : prevTotal + Math.ceil((total - prevTotal)/drawBack.asylum_interpolate);
+            refugees.prev_shown["asylum"][asyl_country] = interpolated_raw;
+            radius += convert_to_radius(interpolated_raw);
+            radius = (radius < 0) ? .1 : radius;
+            var asylumPoint = mapProjection.fromLatLngToPoint(asylum_geo[asyl_country]);
+            context.beginPath();
+            context.arc(asylumPoint.x, asylumPoint.y,radius, 0, 2 * Math.PI, false);
+            context.fillStyle = 'rgba(215, 68, 115, .3)';
+            context.fill();
+            context.lineWidth = drawBack.BASE_STROKE;
+            context.strokeStyle = 'rgb(215, 68, 115)';
+            context.stroke();
+        } 
+      }
+      
+      function init() {
+        load(refugees.geo_url, geo_handler);
+        load(refugees.draw_url, draw_handler);
+        $('#circle').click(togglePlayPause);
+        $('.year').on("mousedown", ".valid", function(event){
+                playBack.mouseDown = true;
+                $('.valid').removeClass('cursor');
+                $(this).addClass('cursor');
+                upDate();
+        })
+        .on("mousemove", ".valid", function(event){
+          if(playBack.mouseDown){
+            $('.valid').removeClass('cursor');
+            $(this).addClass('cursor');
+            upDate();
+          }
+        })
+        .on("mouseup", ".valid", function(){
+              playBack.mouseDown = false;
+        })
+        .addClass('noselect');
 
-        // project rectLatLng to world coordinates and draw
-        var worldPoint = mapProjection.fromLatLngToPoint(rectLatLng);
 
+        $('.year').addClass('noselect');
 
-        context.fillRect(worldPoint.x, worldPoint.y, rectWidth, rectWidth);
+        $('document').on("mouseup", function(){
+              playBack.mouseDown = false;
+        })
+        // initialize the map
+        var mapOptions = {
+          zoom: 4,
+          minZoom: 3,
+          center: new google.maps.LatLng(34.17497, 22.09833),
+          mapTypeId: google.maps.MapTypeId.TERRAIN,
+          styles: [
+                   {
+                      "featureType":"all",
+                      "elementType":"all",
+                      "stylers":[
+                         {
+                            "saturation":-100
+                         }
+                      ]
+                   },
+                   {
+                      "featureType":"water",
+                      "elementType":"geometry.fill",
+                      "stylers":[
+                         {
+                            "color":"#248f8f"
+                         }
+                      ]
+                   },
+                   {
+                      "featureType":"road",
+                      "elementType":"all",
+                      "stylers":[
+                         {
+                            "visibility":"off"
+                         }
+                      ]
+                   },
+                   {
+                      "featureType":"administrative.province",
+                      "elementType":"all",
+                      "stylers":[
+                         {
+                            "visibility":"simplified"
+                         }
+                      ]
+                   },
+                   {
+                      "featureType":"administrative.locality",
+                      "elementType":"all",
+                      "stylers":[
+                         {
+                            "visibility":"simplified"
+                         }
+                      ]
+                   },
+                   {
+                      "featureType":"landscape.natural",
+                      "elementType":"geometry.fill",
+                      "stylers":[
+                         {
+                            "color":"#c4c4c4"
+                         }
+                      ]
+                   },{
+                        "featureType": "landscape.natural.terrain",
+                        "elementType": "geometry",
+                        "stylers": [
+                            {
+                                "visibility": "off"
+                            }
+                        ]
+                    }
+                ]
+        };
+        var mapDiv = document.getElementById('map-div');
+        map = new google.maps.Map(mapDiv, mapOptions);
+
+        // initialize the canvasLayer
+        var canvasLayerOptions = {
+          map: map,
+          resizeHandler: resize,
+          animate: true,
+          updateHandler: update,
+          resolutionScale: resolutionScale
+        };
+        canvasLayer = new CanvasLayer(canvasLayerOptions);
+        context = canvasLayer.canvas.getContext('2d');
       }
 
       document.addEventListener('DOMContentLoaded', init, false);
@@ -319,48 +590,48 @@
           </div>
         </div>
         <div class="year" id="y2014" data-year="2014" style="border-top: 6px solid rgb(68, 215, 168); background-color:rgba(68, 215, 168, .5)">
-            <div class="month cursor" id="Jan14" data-month="1"><p>Jan</p></div>
-            <div class="month" id="Feb14" data-month="2"><p>Feb</p></div>
-            <div class="month" id="Mar14" data-month="3"><p>Mar</p></div>
-            <div class="month" id="Apr14" data-month="4"><p>Apr</p></div>
-            <div class="month" id="May14" data-month="5"><p>May</p></div>
-            <div class="month" id="Jun14" data-month="6"><p>Jun</p></div>
-            <div class="month" id="Jul14" data-month="7"><p>Jul</p></div>
-            <div class="month" id="Aug14" data-month="8"><p>Aug</p></div>
-            <div class="month" id="Sep14" data-month="9"><p>Sep</p></div>
-            <div class="month" id="Oct14" data-month="10"><p>Oct</p></div>
-            <div class="month" id="Nov14" data-month="11"><p>Nov</p></div>
-            <div class="month" id="Dec14" data-month="12"><p>Dec</p></div>
+            <div class="month" id="m1y2014" data-month="1"><p>Jan</p></div>
+            <div class="month" id="m2y2014" data-month="2"><p>Feb</p></div>
+            <div class="month" id="m3y2014" data-month="3"><p>Mar</p></div>
+            <div class="month" id="m4y2014" data-month="4"><p>Apr</p></div>
+            <div class="month" id="m5y2014" data-month="5"><p>May</p></div>
+            <div class="month" id="m6y2014" data-month="6"><p>Jun</p></div>
+            <div class="month" id="m7y2014" data-month="7"><p>Jul</p></div>
+            <div class="month" id="m8y2014" data-month="8"><p>Aug</p></div>
+            <div class="month" id="m9y2014" data-month="9"><p>Sep</p></div>
+            <div class="month" id="m10y2014" data-month="10"><p>Oct</p></div>
+            <div class="month" id="m11y2014" data-month="11"><p>Nov</p></div>
+            <div class="month" id="m12y2014" data-month="12"><p>Dec</p></div>
             <p>2014</p>
         </div>
-        <div class="year" id="y2015" data-year="2015" style="border-top: 6px solid rgb(68, 189, 215); background-color:rgba(68, 189, 215, .5)">
-            <div class="month" id="Jan15" data-month="1"><p>Jan</p></div>
-            <div class="month" id="Feb15" data-month="2"><p>Feb</p></div>
-            <div class="month" id="Mar15" data-month="3"><p>Mar</p></div>
-            <div class="month" id="Apr15" data-month="4"><p>Apr</p></div>
-            <div class="month" id="May15" data-month="5"><p>May</p></div>
-            <div class="month" id="Jun15" data-month="6"><p>Jun</p></div>
-            <div class="month" id="Jul15" data-month="7"><p>Jul</p></div>
-            <div class="month" id="Aug15" data-month="8"><p>Aug</p></div>
-            <div class="month" id="Sep15" data-month="9"><p>Sep</p></div>
-            <div class="month" id="Oct15" data-month="10"><p>Oct</p></div>
-            <div class="month" id="Nov15" data-month="11"><p>Nov</p></div>
-            <div class="month" id="Dec15" data-month="12"><p>Dec</p></div>
+        <div class="year" id="y2015" data-year="2015" style="border-top: 6px solid rgb(68, 118, 215); background-color:rgba(68, 189, 215, .5)">
+            <div class="month" id="m1y2015" data-month="1"><p>Jan</p></div>
+            <div class="month" id="m2y2015" data-month="2"><p>Feb</p></div>
+            <div class="month" id="m3y2015" data-month="3"><p>Mar</p></div>
+            <div class="month" id="m4y2015" data-month="4"><p>Apr</p></div>
+            <div class="month" id="m5y2015" data-month="5"><p>May</p></div>
+            <div class="month" id="m6y2015" data-month="6"><p>Jun</p></div>
+            <div class="month" id="m7y2015" data-month="7"><p>Jul</p></div>
+            <div class="month" id="m8y2015" data-month="8"><p>Aug</p></div>
+            <div class="month" id="m9y2015" data-month="9"><p>Sep</p></div>
+            <div class="month" id="m10y2015" data-month="10"><p>Oct</p></div>
+            <div class="month" id="m11y2015" data-month="11"><p>Nov</p></div>
+            <div class="month" id="m12y2015" data-month="12"><p>Dec</p></div>
             <p>2015</p>
         </div>
         <div class="year" id="y2016" data-year="2016" style="border-top: 6px solid rgb(215, 68, 115); background-color:rgba(215, 68, 115, .5)">
-            <div class="month" id="Jan16" data-month="1"><p>Jan</p></div>
-            <div class="month" id="Feb16" data-month="2"><p>Feb</p></div>
-            <div class="month" id="Mar16" data-month="3"><p>Mar</p></div>
-            <div class="month" id="Apr16" data-month="4"><p>Apr</p></div>
-            <div class="month" id="May16" data-month="5"><p>May</p></div>
-            <div class="month" id="Jun16" data-month="6"><p>Jun</p></div>
-            <div class="month" id="Jul16" data-month="7"><p>Jul</p></div>
-            <div class="month" id="Aug16" data-month="8"><p>Aug</p></div>
-            <div class="month" id="Sep16" data-month="9"><p>Sep</p></div>
-            <div class="month" id="Oct16" data-month="10"><p>Oct</p></div>
-            <div class="month" id="Nov16" data-month="11"><p>Nov</p></div>
-            <div class="month" id="Dec16" data-month="12"><p>Dec</p></div>
+            <div class="month" id="m1y2016" data-month="1"><p>Jan</p></div>
+            <div class="month" id="m2y2016" data-month="2"><p>Feb</p></div>
+            <div class="month" id="m3y2016" data-month="3"><p>Mar</p></div>
+            <div class="month" id="m4y2016" data-month="4"><p>Apr</p></div>
+            <div class="month" id="m5y2016" data-month="5"><p>May</p></div>
+            <div class="month" id="m6y2016" data-month="6"><p>Jun</p></div>
+            <div class="month" id="m7y2016" data-month="7"><p>Jul</p></div>
+            <div class="month" id="m8y2016" data-month="8"><p>Aug</p></div>
+            <div class="month" id="m9y2016" data-month="9"><p>Sep</p></div>
+            <div class="month" id="m10y2016" data-month="10"><p>Oct</p></div>
+            <div class="month" id="m11y2016" data-month="11"><p>Nov</p></div>
+            <div class="month" id="m12y2016" data-month="12"><p>Dec</p></div>
             <p>2016</p>
         </div>
       </div>

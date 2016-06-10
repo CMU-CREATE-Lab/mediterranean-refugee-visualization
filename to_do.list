@@ -1,10 +1,18 @@
 Visualization
-- Generate JSON files with geodata 
-- Link that with canvas and draw circles indicating change
+- deaths in the mediterranean
+- print number of people
 - Draw paths between countries
 - WebGl particles between them
 
 UI
+- Deal with refugee.ready 
 - When selecting a month, highlights months in between for cool effect
-- Dragging on the months also selects them
+- control by arrow keys
+- hover over month for world events
+
+Errors:
+- Last latest months are weird since some values are not yet updated in the database
+
+Optimizations:
+- stop animating when no change on screen
 
