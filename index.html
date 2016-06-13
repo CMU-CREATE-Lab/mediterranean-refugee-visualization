@@ -150,6 +150,7 @@
         }
         
         .month > p{
+            font-size: 11px;
             margin-top: 4px;
             color: white;
         }
@@ -180,7 +181,7 @@
       };
         
       var playBack = {
-          playing: true,
+          playing: false,
           player: null,
           mouseDown: false,
       }
@@ -201,16 +202,21 @@
       function upDate(){
         refugees.currentDate = new Date_M_Y($('.cursor').data('month'), $('.cursor').parent().data('year'));
         if (!canvasLayer.isAnimated())
-            update();
+            canvasLayer.setAnimate(true);
+            setTimeout(function(){
+                if(!playBack.playing){
+                    canvasLayer.setAnimate(false);
+                }
+            }, 1500);
       }
 
       function togglePlayPause(){
         playBack.playing = !playBack.playing;
          $('#circle').children().toggleClass('play').toggleClass('pause');
         if(playBack.playing){
-          pause();
-        }else{
           play();
+        }else{
+          pause();
         }
       }
 
@@ -228,12 +234,16 @@
       }
 
       function play(){
-        playBack.player = window.setInterval(incrementMonth, 300);
+          canvasLayer.setAnimate(true);
+          playBack.player = window.setInterval(incrementMonth, 300);
       }
 
       function pause(){
         window.clearInterval(playBack.player);
         playBack.player = null;
+        setTimeout(function(){
+              canvasLayer.setAnimate(false);
+          }, 1500);
       }
         
       function load(url, handler) {
@@ -260,6 +270,16 @@
               var lat_long = json_data.asylum_geo[key];
               json_data.asylum_geo[key] = new google.maps.LatLng(lat_long.lat, lat_long.lon);
               prev_shown_asylum[key] = 0;
+          }
+          
+          for(var or_key in json_data.path_geo){
+              var or_data = json_data.path_geo[or_key];
+              for (var asyl_key in or_data){
+                  path_array = or_data[asyl_key];
+                  for(var i = 0; i < path_array.length; i++){
+                      json_data.path_geo[or_key][asyl_key][i] = new google.maps.LatLng(path_array[i].lat, path_array[i].lon);
+                  }
+              }
           }
           
           refugees.geo_data = json_data;
@@ -304,6 +324,9 @@
               }
           }
           
+          $("#m5y2016").removeClass('valid');
+          $("#m6y2016").removeClass('valid');
+          
           var largestOfAll = 0;
           for(var year in drawBack.largestValue){
               for (var month in drawBack.largestValue[year]){
@@ -321,11 +344,11 @@
       
       Number.prototype.clamp = function(min, max) {
          return Math.min(Math.max(this, min), max);
-       };
+      };
       
       function convert_to_radius(amount){
           amount = amount.clamp(0, drawBack.MAX_AMOUNT)
-          return .025*Math.sqrt(amount);
+          return .035*Math.sqrt(amount);
       }
         
       function interpolateColors(r1, g1, b1, r2, g2, b2, min, max, val){
@@ -341,23 +364,35 @@
         
       function convert_to_color(amount){
           var color = (amount >= 0) ? 
-              {r: 0, g:255, b:0} : {r: 255, g:0, b:0};
-          var alpha = (amount == 0) ? 0 : .1;
+              {r: 0, g:150, b:0} : {r: 150, g:0, b:0};
+          var alpha = (amount == 0) ? 0 : .4;
           return "rgba({0},{1},{2}, {3})".format(color.r, color.g, color.b, alpha);
       }
         
-      function drawPath(context, start, end, data){
+      function getPath(context, points){
+           // move to the first point
+           context.moveTo(points[0].x, points[0].y);
+           var i;
+           for (i = 1; i < points.length - 2; i ++)
+           {
+              var xc = (points[i].x + points[i + 1].x) / 2;
+              var yc = (points[i].y + points[i + 1].y) / 2;
+              context.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+           }
+         // curve through the last two points
+         context.quadraticCurveTo(points[i].x, points[i].y, points[i+1].x,points[i+1].y);
+      }
+        
+      function drawPath(context, points, data){
         //Drawing path
         context.beginPath();
-        context.moveTo(start.x, start.y);
-        context.lineTo(end.x, end.y);
+        getPath(context, points);
         context.lineWidth = .25;
         context.strokeStyle = convert_to_color(data);
         context.stroke();
       }
 
       function resize() {
-        // nothing to do here
       }
 
       function update() {
@@ -394,29 +429,38 @@
         //origins
         origin_geo = refugees.geo_data.origin_geo;
         asylum_geo = refugees.geo_data.asylum_geo;
+        path_geo = refugees.geo_data.path_geo;
         circle_data = refugees.draw_data.raw;
         path_data = refugees.draw_data.derivative;
         var month = refugees.currentDate.month;
         var year = refugees.currentDate.year;
-          
           
         //origin
         for(var or_key in origin_geo){
             var radius = drawBack.BASE_RADIUS;
             var error = false;
             var originPoint = mapProjection.fromLatLngToPoint(origin_geo[or_key]);
+            var currentAmount = 0;
             for(var asyl_country in circle_data){
                 var asylumPoint = mapProjection.fromLatLngToPoint(asylum_geo[asyl_country]);
                 if(month in circle_data[asyl_country][year] 
                    && or_key in circle_data[asyl_country][year][month]){
-                    var currentAmount = circle_data[asyl_country][year][month][or_key] || 0;
+                    currentAmount = circle_data[asyl_country][year][month][or_key] || 0;
                     var prevAmount = refugees.prev_shown["origin"][or_key];
                     
                     var interpolated_raw = (currentAmount == prevAmount) ? 
                         currentAmount : prevAmount + Math.ceil((currentAmount - prevAmount)/drawBack.origin_interpolate);
                     radius += convert_to_radius(interpolated_raw);
                     refugees.prev_shown["origin"][or_key] = interpolated_raw;
-                    drawPath(context, originPoint, asylumPoint, path_data[asyl_country][year][month][or_key]);
+                    
+                    var pointData = path_geo[or_key][asyl_country];
+                    
+                    var pointDataArr = [];
+           
+                    for(var k = 0; k < pointData.length; k++){
+                        pointDataArr.push(mapProjection.fromLatLngToPoint(pointData[k]));                      
+                    }
+                    drawPath(context, pointDataArr, path_data[asyl_country][year][month][or_key]);
                 }else if(!(month in circle_data[asyl_country][year])){
                     radius = .25;
                     error = true;
@@ -570,7 +614,7 @@
         var canvasLayerOptions = {
           map: map,
           resizeHandler: resize,
-          animate: true,
+          animate: false,
           updateHandler: update,
           resolutionScale: resolutionScale
         };
