@@ -156,18 +156,80 @@
         }
     </style>
 
-    <script src="http://maps.googleapis.com/maps/api/js"></script>
+    <script src="http://maps.googleapis.com/maps/api/js?key=AIzaSyDC5znDfzJNHdK_Bc9jTPIVS4BUZhYeOAA"></script>
     <script type="text/javascript" src="js/CanvasLayer.js"></script>
+      <script type="text/javascript" src="js/quadraticBezier.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
 
     <script type="text/javascript">
       var map;
       var canvasLayer;
+      var particleLayer;
       var context;
+      var particleContext;
         
       function Date_M_Y(month, year){
-        this.month = month;
-        this.year = year;
+          this.month = month;
+          this.year = year;
+      }
+        
+      function Particle(path){
+          this.valid = true;
+          this.path = path;
+          this.percent = 0;
+          this.PERCENT_CAP = 100;
+          this.draw = function(context){
+              var currentPoint = this.path.getPointAtPercentage(this.percent);
+              context.fillStyle = "rgb(255,255,255)";
+              context.beginPath();
+              context.arc(currentPoint.x, currentPoint.y,.1, 0, 2 * Math.PI, false);
+              context.fill();
+          };
+          this.incrementPercent = function(){
+              this.percent += 1;
+              if(this.percent > this.PERCENT_CAP) {
+                  this.percent = this.PERCENT_CAP;
+              };
+          };
+          this.resetPercent = function(){
+              this.percent = 0;
+          };
+          this.isComplete = function(){
+              if(this.percent >= this.PERCENT_CAP){
+                  this.valid = false;
+              }
+              
+              return !this.valid
+          };
+      }
+        
+      function ParticleManager(particleArr){
+          this.particleArr = particleArr;
+          this.addParticle = function(path){
+              this.particleArr.push(new Particle(path));
+          };
+          this.scheduleParticles = function(path, amount){
+              var i = amount;
+              while(i--){
+                  this.addParticle(path);
+              }
+          }
+          this.update = function(){
+              var i = this.particleArr.length;
+              while(--i >= 0){
+                  if(this.particleArr[i].isComplete()){
+                      this.particleArr.splice(i,1);
+                  }else{
+                      this.particleArr[i].incrementPercent();
+                  }
+              }
+          };
+          this.draw = function(context){
+              var i = this.particleArr.length;
+              while(--i >= 0){
+                  particleArr[i].draw(context);
+              }
+          }
       }
         
       var refugees = {
@@ -176,14 +238,16 @@
         ready: true,
         geo_data: {},
         draw_data: {},
+        particle_data: {},
         prev_shown: {},
-        path_data: {},
+        paths: {},
+        particles: new ParticleManager([])
       };
         
       var playBack = {
           playing: false,
           player: null,
-          mouseDown: false,
+          mouseDown: false
       }
       
       var drawBack = {
@@ -194,13 +258,24 @@
           origin_interpolate: 25,
           asylum_interpolate: 10,
           largestValue: {},
-          largestOfAll: 0,
+          largestOfAll: 0
       }
 
       var resolutionScale = window.devicePixelRatio || 1;
-
+        
+      function processParticles(){
+          var raw_data = refugees.draw_data.raw;
+          for(var asyl_key in raw_data){
+              var or_data = raw_data[asyl_key][refugees.currentDate.year][refugees.currentDate.month];
+              for(var or_key in or_data){
+                  refugees.particles.scheduleParticles(refugees.paths[or_key][asyl_key]["path"], or_data[or_key]);
+              }
+          }
+      }
+    
       function upDate(){
         refugees.currentDate = new Date_M_Y($('.cursor').data('month'), $('.cursor').parent().data('year'));
+        processParticles()
         if (!canvasLayer.isAnimated())
             canvasLayer.setAnimate(true);
             setTimeout(function(){
@@ -225,17 +300,16 @@
         if(currentCursorIndex < 0 || currentCursorIndex + 1 == $('.valid').length){
           $('.valid').removeClass('cursor');
           $('.valid').eq(0).addClass('cursor');
-          upDate();
         }else{
           $('.valid').removeClass('cursor');
           $('.valid').eq(currentCursorIndex+1).addClass('cursor');
-          upDate();
         }
+        upDate();
       }
 
       function play(){
           canvasLayer.setAnimate(true);
-          playBack.player = window.setInterval(incrementMonth, 300);
+          playBack.player = window.setInterval(incrementMonth, 500);
       }
 
       function pause(){
@@ -246,15 +320,38 @@
           }, 1500);
       }
         
-      function load(url, handler) {
-        //console.log("Loading...");
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', url);
-        xhr.responseType = 'json';
-        xhr.onload = function() {
-          handler(this.response)
-        }
-        xhr.send();
+      function load(url) {
+        return new Promise(function(resolve, reject){
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', url);
+            xhr.responseType = 'json';
+            xhr.onload = function() {
+              if(xhr.status == 200){
+                  resolve(this.response);
+              }else{
+                  reject(Error(xhr.statusText));
+              }
+            };
+            // Handle network errors
+            xhr.onerror = function() {
+              reject(Error("Network Error"));
+            };
+
+            xhr.send();
+        }); 
+      }
+        
+      function updatePath(){
+          path_geo = refugees.geo_data.path_geo;
+          for(var or_key in path_geo){
+              for(var asyl_key in path_geo[or_key]){
+                  path_array = path_geo[or_key][asyl_key];
+                  for(var i = 0; i < path_array.length; i++){
+                      refugees.paths[or_key][asyl_key]["points"][i] = map.getProjection().fromLatLngToPoint(path_array[i]);
+                  }
+                  refugees.paths[or_key][asyl_key]["path"] = getPathThroughPoints(refugees.paths[or_key][asyl_key]["points"]);
+              }
+          }
       }
         
       function geo_handler(json_data){
@@ -272,12 +369,20 @@
               prev_shown_asylum[key] = 0;
           }
           
+          var paths = {};
+          
           for(var or_key in json_data.path_geo){
+              paths[or_key] = {};
               var or_data = json_data.path_geo[or_key];
               for (var asyl_key in or_data){
+                  paths[or_key][asyl_key] = {};
+                  paths[or_key][asyl_key]["points"] = [];
+                  paths[or_key][asyl_key]["path"] = null;
                   path_array = or_data[asyl_key];
                   for(var i = 0; i < path_array.length; i++){
-                      json_data.path_geo[or_key][asyl_key][i] = new google.maps.LatLng(path_array[i].lat, path_array[i].lon);
+                      var googleLatLong = new google.maps.LatLng(path_array[i].lat, path_array[i].lon);
+                      json_data.path_geo[or_key][asyl_key][i] = googleLatLong;
+                      paths[or_key][asyl_key]["points"].push(null);
                   }
               }
           }
@@ -285,6 +390,7 @@
           refugees.geo_data = json_data;
           refugees.prev_shown.origin = prev_shown_origin;
           refugees.prev_shown.asylum = prev_shown_asylum;
+          refugees.paths = paths;
           console.log(refugees.geo_data, refugees.prev_shown);
       }
         
@@ -293,7 +399,6 @@
           $('#m1y2014').addClass('cursor');
           var dx_data = $.extend(true, {}, json_data);
           for(var asyl_country in json_data){
-              console.log(asyl_country);
               var years_data = json_data[asyl_country];
               for (var year in years_data){
                   if(!(year in drawBack.largestValue)){
@@ -369,30 +474,31 @@
           return "rgba({0},{1},{2}, {3})".format(color.r, color.g, color.b, alpha);
       }
         
-      function getPath(context, points){
-           // move to the first point
-           context.moveTo(points[0].x, points[0].y);
-           var i;
-           for (i = 1; i < points.length - 2; i ++)
-           {
-              var xc = (points[i].x + points[i + 1].x) / 2;
-              var yc = (points[i].y + points[i + 1].y) / 2;
-              context.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
-           }
-         // curve through the last two points
-         context.quadraticCurveTo(points[i].x, points[i].y, points[i+1].x,points[i+1].y);
-      }
-        
-      function drawPath(context, points, data){
+      function drawPath(context, path, data){
         //Drawing path
-        context.beginPath();
-        getPath(context, points);
+        makePath(context, path);
         context.lineWidth = .25;
         context.strokeStyle = convert_to_color(data);
         context.stroke();
       }
-
-      function resize() {
+        
+      function resize(){
+      }
+        
+      function particleUpdate(){
+          var canvasWidth = particleLayer.canvas.width;
+          var canvasHeight = particleLayer.canvas.height;
+          particleContext.clearRect(0, 0, canvasWidth, canvasHeight);
+          var mapProjection = map.getProjection();
+          particleContext.setTransform(1, 0, 0, 1, 0, 0);
+          var scale = Math.pow(2, map.zoom) * resolutionScale;
+          particleContext.scale(scale, scale);
+          var offset = mapProjection.fromLatLngToPoint(particleLayer.getTopLeft());
+          particleContext.translate(-offset.x, -offset.y);
+          
+          refugees.particles.update();
+          refugees.particles.draw(particleContext);
+          
       }
 
       function update() {
@@ -454,13 +560,11 @@
                     refugees.prev_shown["origin"][or_key] = interpolated_raw;
                     
                     var pointData = path_geo[or_key][asyl_country];
+                    var path = refugees.paths[or_key][asyl_country]["path"];
+                    drawPath(context, 
+                             path, 
+                             path_data[asyl_country][year][month][or_key]);
                     
-                    var pointDataArr = [];
-           
-                    for(var k = 0; k < pointData.length; k++){
-                        pointDataArr.push(mapProjection.fromLatLngToPoint(pointData[k]));                      
-                    }
-                    drawPath(context, pointDataArr, path_data[asyl_country][year][month][or_key]);
                 }else if(!(month in circle_data[asyl_country][year])){
                     radius = .25;
                     error = true;
@@ -507,35 +611,8 @@
             context.stroke();
         } 
       }
-      
-      function init() {
-        load(refugees.geo_url, geo_handler);
-        load(refugees.draw_url, draw_handler);
-        $('#circle').click(togglePlayPause);
-        $('.year').on("mousedown", ".valid", function(event){
-                playBack.mouseDown = true;
-                $('.valid').removeClass('cursor');
-                $(this).addClass('cursor');
-                upDate();
-        })
-        .on("mousemove", ".valid", function(event){
-          if(playBack.mouseDown){
-            $('.valid').removeClass('cursor');
-            $(this).addClass('cursor');
-            upDate();
-          }
-        })
-        .on("mouseup", ".valid", function(){
-              playBack.mouseDown = false;
-        })
-        .addClass('noselect');
-
-
-        $('.year').addClass('noselect');
-
-        $('document').on("mouseup", function(){
-              playBack.mouseDown = false;
-        })
+        
+      function initMap(){
         // initialize the map
         var mapOptions = {
           zoom: 4,
@@ -608,21 +685,75 @@
                 ]
         };
         var mapDiv = document.getElementById('map-div');
-        map = new google.maps.Map(mapDiv, mapOptions);
-
+        return new google.maps.Map(mapDiv, mapOptions);
+      }
+        
+      function initCanvasLayer(updateHandler, animated){
         // initialize the canvasLayer
         var canvasLayerOptions = {
           map: map,
           resizeHandler: resize,
-          animate: false,
-          updateHandler: update,
+          animate: animated,
+          updateHandler: updateHandler,
           resolutionScale: resolutionScale
         };
-        canvasLayer = new CanvasLayer(canvasLayerOptions);
-        context = canvasLayer.canvas.getContext('2d');
+        return new CanvasLayer(canvasLayerOptions);
       }
+      
+      function init() {
+        map = initMap();
+          
+        load(refugees.geo_url).then(function(response){
+            geo_handler(response);
+        }, function(error){
+            console.error("Failed!", error);
+        }).then(function(){
+            load(refugees.draw_url).then(function(response){
+                draw_handler(response);
+            }, function(error){
+                console.error("Failed!", error);
+            }).then(function(){
+                google.maps.event.addListenerOnce(map, 'idle', function(){
+                    updatePath();
+                    canvasLayer = initCanvasLayer(update, false);
+                    context = canvasLayer.canvas.getContext('2d');
+                    
+                    particleLayer = initCanvasLayer(particleUpdate, true);
+                    particleContext = particleLayer.canvas.getContext('2d');
+                });
+            });
+        });
+          
+        $('#circle').click(togglePlayPause);
+        $('.year').on("mousedown", ".valid", function(event){
+                playBack.mouseDown = true;
+                $('.valid').removeClass('cursor');
+                $(this).addClass('cursor');
+                upDate();
+        })
+        .on("mousemove", ".valid", function(event){
+          if(playBack.mouseDown){
+            $('.valid').removeClass('cursor');
+            $(this).addClass('cursor');
+            upDate();
+          }
+        })
+        .on("mouseup", ".valid", function(){
+              playBack.mouseDown = false;
+        })
+        .addClass('noselect');
 
+
+        $('.year').addClass('noselect');
+
+        $('document').on("mouseup", function(){
+              playBack.mouseDown = false;
+        });
+      }
+        
       document.addEventListener('DOMContentLoaded', init, false);
+      window.addEventListener('resize', function () {  google.maps.event.trigger(map, 'resize') }, false);
+        
     </script>
   </head>
   <body>
