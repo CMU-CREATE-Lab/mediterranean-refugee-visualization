@@ -173,61 +173,85 @@
           this.year = year;
       }
         
-      function Particle(path){
-          this.valid = true;
+      function Particle(path, radius){
           this.path = path;
+          this.radius = radius || .15;
           this.percent = 0;
-          this.PERCENT_CAP = 100;
           this.draw = function(context){
               var currentPoint = this.path.getPointAtPercentage(this.percent);
               context.fillStyle = "rgb(255,255,255)";
               context.beginPath();
-              context.arc(currentPoint.x, currentPoint.y,.1, 0, 2 * Math.PI, false);
+              context.arc(currentPoint.x, currentPoint.y,radius, 0, 2 * Math.PI, false);
               context.fill();
           };
           this.incrementPercent = function(){
-              this.percent += 1;
-              if(this.percent > this.PERCENT_CAP) {
-                  this.percent = this.PERCENT_CAP;
+              this.percent += 2.5;
+              if(this.percent > 100) {
+                  this.percent = 100;
               };
           };
-          this.resetPercent = function(){
-              this.percent = 0;
-          };
           this.isComplete = function(){
-              if(this.percent >= this.PERCENT_CAP){
-                  this.valid = false;
-              }
-              
-              return !this.valid
+              return (this.percent >= 100);
           };
+      }
+      function ParticleSet(particle, amount){
+          this.particle = particle;
+          this.amount = amount;
+          this.ejectParticle = function(){
+              this.amount--;
+              return new Particle(this.particle.path, this.particle.radius);
+          }
+          this.isComplete = function(){
+              return !this.amount;
+          }
       }
         
       function ParticleManager(particleArr){
           this.particleArr = particleArr;
-          this.addParticle = function(path){
-              this.particleArr.push(new Particle(path));
+          this.particleSets = [];
+          this.clock = null;
+          this.addParticle = function(particle){
+              this.particleArr.push(particle);
           };
-          this.scheduleParticles = function(path, amount){
-              var i = amount;
-              while(i--){
-                  this.addParticle(path);
-              }
-          }
-          this.update = function(){
+          this.addParticleSet = function(particleSet){
+              this.particleSets.push(particleSet)
+          };
+          this.clearParticleArr = function(){
+              this.particleArr = [];
+          };
+          this.clearParticleSets = function(){
+              this.particleSets = [];
+          };
+          this.draw = function(){
               var i = this.particleArr.length;
               while(--i >= 0){
-                  if(this.particleArr[i].isComplete()){
+                  var particle = this.particleArr[i];
+                  if(particle.isComplete()){
                       this.particleArr.splice(i,1);
                   }else{
-                      this.particleArr[i].incrementPercent();
+                      particle.incrementPercent();
+                      particle.draw(particleContext);
                   }
               }
           };
-          this.draw = function(context){
-              var i = this.particleArr.length;
-              while(--i >= 0){
-                  particleArr[i].draw(context);
+      }
+      function calculateRadius(amount){
+          return .15;
+      }
+        
+      function processParticles(){
+          refugees.particles.clearParticleSets();
+          var raw_data = refugees.draw_data.raw;
+          for(var asyl_key in raw_data){
+              var or_data = raw_data[asyl_key][refugees.currentDate.year][refugees.currentDate.month];
+              for(var or_key in or_data){
+                  var amount = or_data[or_key];
+                  if(amount>0){
+                      refugees.particles.addParticle(
+                          new Particle(refugees.paths[or_key][asyl_key]["path"], calculateRadius(amount)));
+                      // refugees.particles.addParticleSet(
+                      //     new ParticleSet(refugees.paths[or_key][asyl_key]["path"], calculateRadius(amount)), amount);
+                  }
               }
           }
       }
@@ -262,16 +286,6 @@
       }
 
       var resolutionScale = window.devicePixelRatio || 1;
-        
-      function processParticles(){
-          var raw_data = refugees.draw_data.raw;
-          for(var asyl_key in raw_data){
-              var or_data = raw_data[asyl_key][refugees.currentDate.year][refugees.currentDate.month];
-              for(var or_key in or_data){
-                  refugees.particles.scheduleParticles(refugees.paths[or_key][asyl_key]["path"], or_data[or_key]);
-              }
-          }
-      }
     
       function upDate(){
         refugees.currentDate = new Date_M_Y($('.cursor').data('month'), $('.cursor').parent().data('year'));
@@ -283,6 +297,29 @@
                     canvasLayer.setAnimate(false);
                 }
             }, 1500);
+      }
+
+      function testAllPaths(){
+          var data = [];
+          for(var or_key in refugees.paths){
+              for(var asyl_key in refugees.paths[or_key]){
+                  var path = refugees.paths[or_key][asyl_key]["path"];
+                  data.push(or_key, asyl_key, path);
+              }
+          }
+          delayExecute(data, 0);
+      }
+        
+      function delayExecute(data, i){
+          setTimeout(function(){
+              console.log(data[i], data[i+1]);
+              refugees.particles.addParticle(data[i+2]);
+              console.log("done.");
+              var j = i+3;
+              if(j < data.length){
+                  delayExecute(data, j);
+              }
+          }, 3000);
       }
 
       function togglePlayPause(){
@@ -309,7 +346,7 @@
 
       function play(){
           canvasLayer.setAnimate(true);
-          playBack.player = window.setInterval(incrementMonth, 500);
+          playBack.player = window.setInterval(incrementMonth, 1000);
       }
 
       function pause(){
@@ -468,10 +505,12 @@
         };
         
       function convert_to_color(amount){
-          var color = (amount >= 0) ? 
+          var color = (amount > 0) ? 
               {r: 0, g:150, b:0} : {r: 150, g:0, b:0};
-          var alpha = (amount == 0) ? 0 : .4;
-          return "rgba({0},{1},{2}, {3})".format(color.r, color.g, color.b, alpha);
+          if(amount == 0){
+              color = {r: 80, g:80, b:80}
+          }
+          return "rgba({0},{1},{2}, {3})".format(color.r, color.g, color.b, .4);
       }
         
       function drawPath(context, path, data){
@@ -496,8 +535,7 @@
           var offset = mapProjection.fromLatLngToPoint(particleLayer.getTopLeft());
           particleContext.translate(-offset.x, -offset.y);
           
-          refugees.particles.update();
-          refugees.particles.draw(particleContext);
+          refugees.particles.draw();
           
       }
 
@@ -720,6 +758,7 @@
                     
                     particleLayer = initCanvasLayer(particleUpdate, true);
                     particleContext = particleLayer.canvas.getContext('2d');
+                    upDate();
                 });
             });
         });

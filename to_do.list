@@ -1,11 +1,11 @@
 Visualization
+- minicursor over every month
 - deaths in the mediterranean
 - print number of people
-- Draw paths between countries
 - WebGl particles between them
 
 UI
-- Deal with refugee.ready 
+- Loading icon
 - When selecting a month, highlights months in between for cool effect
 - control by arrow keys
 - hover over month for world events
