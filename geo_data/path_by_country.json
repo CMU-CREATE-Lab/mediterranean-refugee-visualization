@@ -165,6 +165,33 @@
            "Austria",
            "Italy"
        ]
-   }
-
+   },
+   "United Arab Emirates":{
+       "Italy":[
+           "United Arab Emirates",
+           "Saudi Arabia",
+           "Jordan",
+           "Egypt",
+           "Libya",
+           "Italy"
+       ]
+   },
+  "Sierra Leone":{
+      "Italy":[
+          "Sierra Leone",
+          "Mali",
+          "Morocco",
+          "Spain"
+      ]
+  },
+  "Kenya":{
+      "Spain":[
+               "Kenya",
+               "Sudan",
+               "Libya",
+               "Algeria",
+               "Morocco",
+               "Spain"
+       ]
+  }
 }

@@ -133,6 +133,7 @@
         }
         
         .month{
+            position: relative;
             height: 50%;
             width: calc(100%/12);
             background-color: rgb(20,20,20);
@@ -154,6 +155,37 @@
             margin-top: 4px;
             color: white;
         }
+        
+        .line {
+/*             transition: left 10ms; */
+        }
+        
+        .cursor > .line {
+            display: block;
+            background-color: red;
+            width: 2px;
+            height: 100%;
+            position: absolute;
+            top: 0px;
+            z-index: 10;
+        }
+        
+        .line {
+            display: none;
+        }
+        
+        
+        #loading {
+          background: url(images/loading.gif) no-repeat center;
+          pointer-events: none;
+          position: absolute;
+          height: 50px;
+          width: 50px;
+          z-index: 100;
+          top: 50%;
+          left: 50%;
+
+        }
     </style>
 
     <script src="http://maps.googleapis.com/maps/api/js?key=AIzaSyDC5znDfzJNHdK_Bc9jTPIVS4BUZhYeOAA"></script>
@@ -167,22 +199,57 @@
       var particleLayer;
       var context;
       var particleContext;
+      
+      var refugees = {
+        geo_url: './geo_data/geo_data.json',
+        draw_url: './json_store/processed_data.json',
+        deaths_url: './json_store/death.json',
+        ready: true,
+        geo_data: {},
+        draw_data: {},
+        deaths_data: {},
+        prev_shown: {},
+        paths: {},
+        particles: new ParticleManager([]),
+        largestValue: {},
+        largestOfAll: 0
+      };
+        
+      var playBack = {
+          playing: false,
+          player: null,
+          mouseDown: false
+      }
+      
+      var drawBack = {
+          MAX_RADIUS: 3,
+          BASE_RADIUS: .25,
+          BASE_STROKE: .15,
+          MAX_AMOUNT: 30000,
+          origin_interpolate: 25,
+          asylum_interpolate: 10,
+          particle_size: .45,
+          colorIndex: 0,
+          colors: ["rgb(0,133,101)", "rgb(0,158,121)", "rgb(0,184,140)", "rgb(0,209,160)", "rgb(0,235,180)"]
+      }
+
+      var resolutionScale = window.devicePixelRatio || 1;
         
       function Date_M_Y(month, year){
           this.month = month;
           this.year = year;
       }
-        
-      function Particle(path, radius){
+              
+      function Particle(path, radius, color){
           this.path = path;
-          this.radius = radius || .15;
+          this.radius = radius || drawBack.particle_size;
+          this.color = color || "black";
           this.percent = 0;
           this.draw = function(context){
               var currentPoint = this.path.getPointAtPercentage(this.percent);
-              context.fillStyle = "rgb(255,255,255)";
-              context.beginPath();
-              context.arc(currentPoint.x, currentPoint.y,radius, 0, 2 * Math.PI, false);
-              context.fill();
+              context.fillStyle = this.color;
+              context.fillRect(currentPoint.x, currentPoint.y,radius, radius);
+              //call context.fill() late
           };
           this.incrementPercent = function(){
               this.percent += 2.5;
@@ -199,7 +266,9 @@
           this.amount = amount;
           this.ejectParticle = function(){
               this.amount--;
-              return new Particle(this.particle.path, this.particle.radius);
+              var colorIndex = drawBack.colorIndex;
+              drawBack.colorIndex = (colorIndex >= drawBack.colors.length-1) ? 0 : colorIndex + 1;
+              return new Particle(this.particle.path, this.particle.radius, drawBack.colors[colorIndex]);
           }
           this.isComplete = function(){
               return !this.amount;
@@ -210,6 +279,8 @@
           this.particleArr = particleArr;
           this.particleSets = [];
           this.clock = null;
+          this.iterations = 0;
+          this.maxIterations = 0;
           this.addParticle = function(particle){
               this.particleArr.push(particle);
           };
@@ -222,9 +293,43 @@
           this.clearParticleSets = function(){
               this.particleSets = [];
           };
+          this.clearClock = function(){
+              clearInterval(this.clock);
+              this.clock = null;
+              this.iterations = 0;
+          };
+          this.injectParticles = function(){
+              var i = this.particleSets.length;
+              while(i--){
+                  var set = this.particleSets[i];
+                  if(set.isComplete()){
+                      this.particleSets.splice(i,1);
+                  }else{
+                      this.addParticle(set.ejectParticle());
+                  }
+              }
+          };
+           this.setClock = function(interval, maxIterations){
+              this.maxIterations = maxIterations;
+              this.clock = setInterval(function(){
+                  var iterations = refugees.particles.iterations;
+                  if(iterations > maxIterations){
+                      refugees.particles.clearClock();
+                  }else{
+                      refugees.particles.injectParticles();
+                      refugees.particles.iterations = iterations + 1;
+                  }
+                  refugees.particles.setCursorLine();
+              }, interval)
+                            
+
+          };
+          this.setCursorLine = function(){
+              $(".cursor > .line").css('left', (this.iterations/this.maxIterations * 100)+"%");
+          };
           this.draw = function(){
               var i = this.particleArr.length;
-              while(--i >= 0){
+              while(i--){
                   var particle = this.particleArr[i];
                   if(particle.isComplete()){
                       this.particleArr.splice(i,1);
@@ -233,59 +338,57 @@
                       particle.draw(particleContext);
                   }
               }
+              particleContext.fill();
+
           };
       }
+      
       function calculateRadius(amount){
-          return .15;
+          return drawBack.particle_size;
+      }
+        
+      function calculateInterval(largestVal){
+          return 1000/largestVal;
+      }
+          
+      function scale(amount){
+          // switch(true){
+          //     case (amount < 500):
+          //         amount;
+          //         break;
+          //     case (amount < 1000):
+          //         Math.round(amount/2);
+          //         break;
+          //     case 
+          // }
+          return amount;
       }
         
       function processParticles(){
           refugees.particles.clearParticleSets();
+          var largestVal = 0;
           var raw_data = refugees.draw_data.raw;
           for(var asyl_key in raw_data){
               var or_data = raw_data[asyl_key][refugees.currentDate.year][refugees.currentDate.month];
               for(var or_key in or_data){
                   var amount = or_data[or_key];
+                  largestVal = (amount > largestVal) ? amount : largestVal;
                   if(amount>0){
-                      refugees.particles.addParticle(
-                          new Particle(refugees.paths[or_key][asyl_key]["path"], calculateRadius(amount)));
-                      // refugees.particles.addParticleSet(
-                      //     new ParticleSet(refugees.paths[or_key][asyl_key]["path"], calculateRadius(amount)), amount);
+                      try{
+                          refugees.particles.addParticleSet(
+                              new ParticleSet(
+                                  new Particle(refugees.paths[or_key][asyl_key]["path"], 
+                                               calculateRadius(amount)), 
+                                  amount));
+                      }catch(error){
+                          console.log("No path between {0} and {1}".format(or_key, asyl_key));
+                      }
                   }
               }
           }
+          refugees.particles.clearClock();
+          refugees.particles.setClock(calculateInterval(largestVal), scale(largestVal));
       }
-        
-      var refugees = {
-        geo_url: './geo_data/geo_data.json',
-        draw_url: './json_store/processed_data.json',
-        ready: true,
-        geo_data: {},
-        draw_data: {},
-        particle_data: {},
-        prev_shown: {},
-        paths: {},
-        particles: new ParticleManager([])
-      };
-        
-      var playBack = {
-          playing: false,
-          player: null,
-          mouseDown: false
-      }
-      
-      var drawBack = {
-          MAX_RADIUS: 3,
-          BASE_RADIUS: .5,
-          BASE_STROKE: .25,
-          MAX_AMOUNT: 15000,
-          origin_interpolate: 25,
-          asylum_interpolate: 10,
-          largestValue: {},
-          largestOfAll: 0
-      }
-
-      var resolutionScale = window.devicePixelRatio || 1;
     
       function upDate(){
         refugees.currentDate = new Date_M_Y($('.cursor').data('month'), $('.cursor').parent().data('year'));
@@ -343,6 +446,19 @@
         }
         upDate();
       }
+        
+      function decrementMonth(){
+        var currentCursorIndex = $('.cursor').index('.valid');
+        if(currentCursorIndex < 0 || currentCursorIndex == 0){
+          $('.valid').removeClass('cursor');
+          $('.valid').eq($('.valid').length - 1).addClass('cursor');
+        }else{
+          $('.valid').removeClass('cursor');
+          $('.valid').eq(currentCursorIndex-1).addClass('cursor');
+        }
+        upDate();
+      }
+
 
       function play(){
           canvasLayer.setAnimate(true);
@@ -428,23 +544,25 @@
           refugees.prev_shown.origin = prev_shown_origin;
           refugees.prev_shown.asylum = prev_shown_asylum;
           refugees.paths = paths;
-          console.log(refugees.geo_data, refugees.prev_shown);
       }
         
-      function draw_handler(json_data){
-          refugees.currentDate = new Date_M_Y(1,2014);
-          $('#m1y2014').addClass('cursor');
+      function draw_handler(json_data){ 
+          refugees.deaths = json_data["deaths"];
+          refugees.deaths = $.extend(true, {}, json_data)["deaths"];
+          refugees.prev_shown["deaths"] = 0;
+          refugees.deaths["location"] = new google.maps.LatLng(39.639537564366684,4.21875);
+          delete json_data["deaths"]
           var dx_data = $.extend(true, {}, json_data);
           for(var asyl_country in json_data){
               var years_data = json_data[asyl_country];
               for (var year in years_data){
-                  if(!(year in drawBack.largestValue)){
-                      drawBack.largestValue[year] = {};
+                  if(!(year in refugees.largestValue)){
+                      refugees.largestValue[year] = {};
                   }
                   var year_data = years_data[year];
                   for (var month in year_data){
-                      if(!(month in drawBack.largestValue[year])){
-                          drawBack.largestValue[year][month] = 0;
+                      if(!(month in refugees.largestValue[year])){
+                          refugees.largestValue[year][month] = 0;
                       }
                       $('#m'+month+'y'+year).addClass('valid');
                       var origin_countries = year_data[month];
@@ -457,31 +575,26 @@
                               dx_data[asyl_country][year][month][or_key] = currentVal - prevVal;
                           }
                           total += currentVal;
-                          currentLargest = drawBack.largestValue[year][month];
-                          drawBack.largestValue[year][month] = (currentVal > currentLargest) ? currentVal : currentLargest;
+                          currentLargest = refugees.largestValue[year][month];
+                          refugees.largestValue[year][month] = (currentVal > currentLargest) ? currentVal : currentLargest;
                       }
-                      currentLargest = drawBack.largestValue[year][month];
-                      drawBack.largestValue[year][month] = (total > currentLargest) ? total : currentLargest;
+                      currentLargest = refugees.largestValue[year][month];
+                      refugees.largestValue[year][month] = (total > currentLargest) ? total : currentLargest;
                   }
               }
           }
           
-          $("#m5y2016").removeClass('valid');
-          $("#m6y2016").removeClass('valid');
-          
           var largestOfAll = 0;
-          for(var year in drawBack.largestValue){
-              for (var month in drawBack.largestValue[year]){
-                  var value = drawBack.largestValue[year][month];
+          for(var year in refugees.largestValue){
+              for (var month in refugees.largestValue[year]){
+                  var value = refugees.largestValue[year][month];
                   largestOfAll = (value > largestOfAll) ? value : largestOfAll;
               }
           }
           
-          drawBack.largestValue["largestOfAll"] = largestOfAll;
-          
+          refugees.largestValue["largestOfAll"] = largestOfAll;
           refugees.draw_data.raw = json_data;
           refugees.draw_data.derivative = dx_data;
-          console.log(refugees.draw_data, drawBack.largestValue);
       }
       
       Number.prototype.clamp = function(min, max) {
@@ -493,10 +606,6 @@
           return .035*Math.sqrt(amount);
       }
         
-      function interpolateColors(r1, g1, b1, r2, g2, b2, min, max, val){
-          var t = (val - min)/(max - min); 
-          return {r:(1 - t)*r1 + t*r2, g:(1 - t)*g1 + t*g2,b:(1 - t)*b1 + t*b2}
-      }
       String.prototype.format = function () {
           var args = [].slice.call(arguments);
               return this.replace(/(\{\d+\})/g, function (a){
@@ -506,17 +615,17 @@
         
       function convert_to_color(amount){
           var color = (amount > 0) ? 
-              {r: 0, g:150, b:0} : {r: 150, g:0, b:0};
-          if(amount == 0){
+              {r: 50, g:150, b:50} : {r: 150, g:50, b:50};
+           if(amount == 0){
               color = {r: 80, g:80, b:80}
-          }
-          return "rgba({0},{1},{2}, {3})".format(color.r, color.g, color.b, .4);
+            }
+          return "rgba({0},{1},{2}, {3})".format(color.r, color.g, color.b, .3);
       }
         
       function drawPath(context, path, data){
         //Drawing path
         makePath(context, path);
-        context.lineWidth = .25;
+        context.lineWidth = .35;
         context.strokeStyle = convert_to_color(data);
         context.stroke();
       }
@@ -580,6 +689,7 @@
         var year = refugees.currentDate.year;
           
         //origin
+        context.lineWidth = drawBack.BASE_STROKE;
         for(var or_key in origin_geo){
             var radius = drawBack.BASE_RADIUS;
             var error = false;
@@ -596,26 +706,28 @@
                         currentAmount : prevAmount + Math.ceil((currentAmount - prevAmount)/drawBack.origin_interpolate);
                     radius += convert_to_radius(interpolated_raw);
                     refugees.prev_shown["origin"][or_key] = interpolated_raw;
-                    
-                    var pointData = path_geo[or_key][asyl_country];
-                    var path = refugees.paths[or_key][asyl_country]["path"];
-                    drawPath(context, 
-                             path, 
-                             path_data[asyl_country][year][month][or_key]);
-                    
+                    try{
+                        var pointData = path_geo[or_key][asyl_country];
+                        var path = refugees.paths[or_key][asyl_country]["path"];
+                        drawPath(context, 
+                                 path, 
+                                 path_data[asyl_country][year][month][or_key]);
+                    }catch(error){
+                        console.log("No path between {0} and {1}".format(or_key, asyl_country));
+                    }
                 }else if(!(month in circle_data[asyl_country][year])){
                     radius = .25;
                     error = true;
                 } 
             }
             radius = (radius < 0) ? .1 : radius;
-            
+  
             if(!error){
-                context.fillStyle = 'rgba(68, 116, 215, .3)';
-                context.strokeStyle = 'rgb(68, 116, 215)';
+                context.fillStyle = 'rgba(68,153,215, .3)';
+                context.strokeStyle = 'rgb(68,153,215)';
             }else{
                 context.fillStyle = 'rgba(180, 180, 180, .3)';
-                 context.strokeStyle = 'rgb(180, 180, 180)';
+                context.strokeStyle = 'rgb(180, 180, 180)';
             }
              //draws circle at origin country
             context.beginPath();
@@ -626,6 +738,9 @@
         }
           
         //asylum
+          
+        context.fillStyle = 'rgba(215, 68, 115, .3)';
+        context.strokeStyle = 'rgb(215, 68, 115)';
         for(var asyl_country in circle_data){
             var radius = drawBack.BASE_RADIUS;
             origin_countries = circle_data[asyl_country][year][month]
@@ -642,12 +757,26 @@
             var asylumPoint = mapProjection.fromLatLngToPoint(asylum_geo[asyl_country]);
             context.beginPath();
             context.arc(asylumPoint.x, asylumPoint.y,radius, 0, 2 * Math.PI, false);
-            context.fillStyle = 'rgba(215, 68, 115, .3)';
+            
             context.fill();
-            context.lineWidth = drawBack.BASE_STROKE;
-            context.strokeStyle = 'rgb(215, 68, 115)';
             context.stroke();
         } 
+          
+        //deaths
+        var currentAmount = refugees.deaths[year][month] || 0;
+        var prevAmount = refugees.prev_shown["deaths"];
+
+        var interpolated_raw = (currentAmount == prevAmount) ? 
+            currentAmount : prevAmount + Math.ceil((currentAmount - prevAmount)/drawBack.origin_interpolate);
+        refugees.prev_shown["deaths"] = interpolated_raw;
+        var deathsPoint = mapProjection.fromLatLngToPoint(refugees.deaths.location);
+        var radius = convert_to_radius(interpolated_raw);
+        context.beginPath();
+        context.arc(deathsPoint.x, deathsPoint.y,radius, 0, 2 * Math.PI, false);
+        context.fillStyle = 'rgba(255, 255, 255, .3)';
+        context.fill();
+        context.strokeStyle = 'rgb(255, 255, 255)';
+        context.stroke();
       }
         
       function initMap(){
@@ -658,69 +787,172 @@
           center: new google.maps.LatLng(34.17497, 22.09833),
           mapTypeId: google.maps.MapTypeId.TERRAIN,
           styles: [
-                   {
-                      "featureType":"all",
-                      "elementType":"all",
-                      "stylers":[
-                         {
-                            "saturation":-100
-                         }
-                      ]
-                   },
-                   {
-                      "featureType":"water",
-                      "elementType":"geometry.fill",
-                      "stylers":[
-                         {
-                            "color":"#248f8f"
-                         }
-                      ]
-                   },
-                   {
-                      "featureType":"road",
-                      "elementType":"all",
-                      "stylers":[
-                         {
-                            "visibility":"off"
-                         }
-                      ]
-                   },
-                   {
-                      "featureType":"administrative.province",
-                      "elementType":"all",
-                      "stylers":[
-                         {
-                            "visibility":"simplified"
-                         }
-                      ]
-                   },
-                   {
-                      "featureType":"administrative.locality",
-                      "elementType":"all",
-                      "stylers":[
-                         {
-                            "visibility":"simplified"
-                         }
-                      ]
-                   },
-                   {
-                      "featureType":"landscape.natural",
-                      "elementType":"geometry.fill",
-                      "stylers":[
-                         {
-                            "color":"#c4c4c4"
-                         }
-                      ]
-                   },{
-                        "featureType": "landscape.natural.terrain",
-                        "elementType": "geometry",
-                        "stylers": [
-                            {
-                                "visibility": "off"
-                            }
-                        ]
-                    }
-                ]
+                {
+                    "featureType": "all",
+                    "elementType": "labels.text.fill",
+                    "stylers": [
+                        {
+                            "saturation": 36
+                        },
+                        {
+                            "color": "#999999"
+                        },
+                        {
+                            "lightness": 40
+                        }
+                    ]
+                },
+                {
+                    "featureType": "all",
+                    "elementType": "labels.text.stroke",
+                    "stylers": [
+                        {
+                            "visibility": "on"
+                        },
+                        {
+                            "color": "#000000"
+                        },
+                        {
+                            "lightness": 16
+                        }
+                    ]
+                },
+                {
+                    "featureType": "all",
+                    "elementType": "labels.icon",
+                    "stylers": [
+                        {
+                            "visibility": "off"
+                        }
+                    ]
+                },
+                {
+                    "featureType": "administrative",
+                    "elementType": "geometry.fill",
+                    "stylers": [
+                        {
+                            "color": "#000000"
+                        },
+                        {
+                            "lightness": 20
+                        }
+                    ]
+                },
+                {
+                    "featureType": "administrative",
+                    "elementType": "geometry.stroke",
+                    "stylers": [
+                        {
+                            "color": "#000000"
+                        },
+                        {
+                            "lightness": 17
+                        },
+                        {
+                            "weight": 1.2
+                        }
+                    ]
+                },
+                {
+                    "featureType": "landscape",
+                    "elementType": "geometry",
+                    "stylers": [
+                        {
+                            "color": "#000000"
+                        },
+                        {
+                            "lightness": 20
+                        }
+                    ]
+                },
+                {
+                    "featureType": "poi",
+                    "elementType": "geometry",
+                    "stylers": [
+                        {
+                            "color": "#000000"
+                        },
+                        {
+                            "lightness": 21
+                        }
+                    ]
+                },
+                {
+                    "featureType": "road.highway",
+                    "elementType": "geometry.fill",
+                    "stylers": [
+                        {
+                            "color": "#000000"
+                        },
+                        {
+                            "lightness": 17
+                        }
+                    ]
+                },
+                {
+                    "featureType": "road.highway",
+                    "elementType": "geometry.stroke",
+                    "stylers": [
+                        {
+                            "color": "#000000"
+                        },
+                        {
+                            "lightness": 29
+                        },
+                        {
+                            "weight": 0.2
+                        }
+                    ]
+                },
+                {
+                    "featureType": "road.arterial",
+                    "elementType": "geometry",
+                    "stylers": [
+                        {
+                            "color": "#000000"
+                        },
+                        {
+                            "lightness": 18
+                        }
+                    ]
+                },
+                {
+                    "featureType": "road.local",
+                    "elementType": "geometry",
+                    "stylers": [
+                        {
+                            "color": "#000000"
+                        },
+                        {
+                            "lightness": 16
+                        }
+                    ]
+                },
+                {
+                    "featureType": "transit",
+                    "elementType": "geometry",
+                    "stylers": [
+                        {
+                            "color": "#000000"
+                        },
+                        {
+                            "lightness": 19
+                        }
+                    ]
+                },
+                {
+                    "featureType": "water",
+                    "elementType": "geometry",
+                    "stylers": [
+                        {
+                            "color":"#0b2929"
+                        },
+                        {
+                            "lightness": 17
+                        }
+                    ]
+                }
+            ]
         };
         var mapDiv = document.getElementById('map-div');
         return new google.maps.Map(mapDiv, mapOptions);
@@ -758,6 +990,10 @@
                     
                     particleLayer = initCanvasLayer(particleUpdate, true);
                     particleContext = particleLayer.canvas.getContext('2d');
+                    var el = document.getElementById("loading");
+                    el.style['display'] = 'none';
+                    refugees.currentDate = new Date_M_Y(1,2014);
+                    $('#m1y2014').addClass('cursor');
                     upDate();
                 });
             });
@@ -788,6 +1024,19 @@
         $('document').on("mouseup", function(){
               playBack.mouseDown = false;
         });
+          
+        $('body').keyup(function(e){
+           if(e.keyCode == 32){
+               // space bar
+               togglePlayPause();
+           }else if(e.keyCode == 37){
+               //left arrow
+               decrementMonth();
+           }else if(e.keyCode == 39){
+               //right arrow
+               incrementMonth();
+           }
+        });
       }
         
       document.addEventListener('DOMContentLoaded', init, false);
@@ -804,50 +1053,51 @@
           </div>
         </div>
         <div class="year" id="y2014" data-year="2014" style="border-top: 6px solid rgb(68, 215, 168); background-color:rgba(68, 215, 168, .5)">
-            <div class="month" id="m1y2014" data-month="1"><p>Jan</p></div>
-            <div class="month" id="m2y2014" data-month="2"><p>Feb</p></div>
-            <div class="month" id="m3y2014" data-month="3"><p>Mar</p></div>
-            <div class="month" id="m4y2014" data-month="4"><p>Apr</p></div>
-            <div class="month" id="m5y2014" data-month="5"><p>May</p></div>
-            <div class="month" id="m6y2014" data-month="6"><p>Jun</p></div>
-            <div class="month" id="m7y2014" data-month="7"><p>Jul</p></div>
-            <div class="month" id="m8y2014" data-month="8"><p>Aug</p></div>
-            <div class="month" id="m9y2014" data-month="9"><p>Sep</p></div>
-            <div class="month" id="m10y2014" data-month="10"><p>Oct</p></div>
-            <div class="month" id="m11y2014" data-month="11"><p>Nov</p></div>
-            <div class="month" id="m12y2014" data-month="12"><p>Dec</p></div>
+            <div class="month" id="m1y2014" data-month="1"><div class="line"></div><p>Jan</p></div>
+            <div class="month" id="m2y2014" data-month="2"><div class="line"></div><p>Feb</p></div>
+            <div class="month" id="m3y2014" data-month="3"><div class="line"></div><p>Mar</p></div>
+            <div class="month" id="m4y2014" data-month="4"><div class="line"></div><p>Apr</p></div>
+            <div class="month" id="m5y2014" data-month="5"><div class="line"></div><p>May</p></div>
+            <div class="month" id="m6y2014" data-month="6"><div class="line"></div><p>Jun</p></div>
+            <div class="month" id="m7y2014" data-month="7"><div class="line"></div><p>Jul</p></div>
+            <div class="month" id="m8y2014" data-month="8"><div class="line"></div><p>Aug</p></div>
+            <div class="month" id="m9y2014" data-month="9"><div class="line"></div><p>Sep</p></div>
+            <div class="month" id="m10y2014" data-month="10"><div class="line"></div><p>Oct</p></div>
+            <div class="month" id="m11y2014" data-month="11"><div class="line"></div><p>Nov</p></div>
+            <div class="month" id="m12y2014" data-month="12"><div class="line"></div><p>Dec</p></div>
             <p>2014</p>
         </div>
         <div class="year" id="y2015" data-year="2015" style="border-top: 6px solid rgb(68, 118, 215); background-color:rgba(68, 189, 215, .5)">
-            <div class="month" id="m1y2015" data-month="1"><p>Jan</p></div>
-            <div class="month" id="m2y2015" data-month="2"><p>Feb</p></div>
-            <div class="month" id="m3y2015" data-month="3"><p>Mar</p></div>
-            <div class="month" id="m4y2015" data-month="4"><p>Apr</p></div>
-            <div class="month" id="m5y2015" data-month="5"><p>May</p></div>
-            <div class="month" id="m6y2015" data-month="6"><p>Jun</p></div>
-            <div class="month" id="m7y2015" data-month="7"><p>Jul</p></div>
-            <div class="month" id="m8y2015" data-month="8"><p>Aug</p></div>
-            <div class="month" id="m9y2015" data-month="9"><p>Sep</p></div>
-            <div class="month" id="m10y2015" data-month="10"><p>Oct</p></div>
-            <div class="month" id="m11y2015" data-month="11"><p>Nov</p></div>
-            <div class="month" id="m12y2015" data-month="12"><p>Dec</p></div>
+            <div class="month" id="m1y2015" data-month="1"><div class="line"></div><p>Jan</p></div>
+            <div class="month" id="m2y2015" data-month="2"><div class="line"></div><p>Feb</p></div>
+            <div class="month" id="m3y2015" data-month="3"><div class="line"></div><p>Mar</p></div>
+            <div class="month" id="m4y2015" data-month="4"><div class="line"></div><p>Apr</p></div>
+            <div class="month" id="m5y2015" data-month="5"><div class="line"></div><p>May</p></div>
+            <div class="month" id="m6y2015" data-month="6"><div class="line"></div><p>Jun</p></div>
+            <div class="month" id="m7y2015" data-month="7"><div class="line"></div><p>Jul</p></div>
+            <div class="month" id="m8y2015" data-month="8"><div class="line"></div><p>Aug</p></div>
+            <div class="month" id="m9y2015" data-month="9"><div class="line"></div><p>Sep</p></div>
+            <div class="month" id="m10y2015" data-month="10"><div class="line"></div><p>Oct</p></div>
+            <div class="month" id="m11y2015" data-month="11"><div class="line"></div><p>Nov</p></div>
+            <div class="month" id="m12y2015" data-month="12"><div class="line"></div><p>Dec</p></div>
             <p>2015</p>
         </div>
         <div class="year" id="y2016" data-year="2016" style="border-top: 6px solid rgb(215, 68, 115); background-color:rgba(215, 68, 115, .5)">
-            <div class="month" id="m1y2016" data-month="1"><p>Jan</p></div>
-            <div class="month" id="m2y2016" data-month="2"><p>Feb</p></div>
-            <div class="month" id="m3y2016" data-month="3"><p>Mar</p></div>
-            <div class="month" id="m4y2016" data-month="4"><p>Apr</p></div>
-            <div class="month" id="m5y2016" data-month="5"><p>May</p></div>
-            <div class="month" id="m6y2016" data-month="6"><p>Jun</p></div>
-            <div class="month" id="m7y2016" data-month="7"><p>Jul</p></div>
-            <div class="month" id="m8y2016" data-month="8"><p>Aug</p></div>
-            <div class="month" id="m9y2016" data-month="9"><p>Sep</p></div>
-            <div class="month" id="m10y2016" data-month="10"><p>Oct</p></div>
-            <div class="month" id="m11y2016" data-month="11"><p>Nov</p></div>
-            <div class="month" id="m12y2016" data-month="12"><p>Dec</p></div>
+            <div class="month" id="m1y2016" data-month="1"><div class="line"></div><p>Jan</p></div>
+            <div class="month" id="m2y2016" data-month="2"><div class="line"></div><p>Feb</p></div>
+            <div class="month" id="m3y2016" data-month="3"><div class="line"></div><p>Mar</p></div>
+            <div class="month" id="m4y2016" data-month="4"><div class="line"></div><p>Apr</p></div>
+            <div class="month" id="m5y2016" data-month="5"><div class="line"></div><p>May</p></div>
+            <div class="month" id="m6y2016" data-month="6"><div class="line"></div><p>Jun</p></div>
+            <div class="month" id="m7y2016" data-month="7"><div class="line"></div><p>Jul</p></div>
+            <div class="month" id="m8y2016" data-month="8"><div class="line"></div><p>Aug</p></div>
+            <div class="month" id="m9y2016" data-month="9"><div class="line"></div><p>Sep</p></div>
+            <div class="month" id="m10y2016" data-month="10"><div class="line"></div><p>Oct</p></div>
+            <div class="month" id="m11y2016" data-month="11"><div class="line"></div><p>Nov</p></div>
+            <div class="month" id="m12y2016" data-month="12"><div class="line"></div><p>Dec</p></div>
             <p>2016</p>
         </div>
       </div>
+      <div id="loading"></div>
   </body>
 </html>

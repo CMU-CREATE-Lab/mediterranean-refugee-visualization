@@ -1,17 +1,11 @@
 Visualization
-- minicursor over every month
-- deaths in the mediterranean
 - print number of people
-- WebGl particles between them
+- scale amount of people entering country 
 
 UI
-- Loading icon
-- When selecting a month, highlights months in between for cool effect
-- control by arrow keys
 - hover over month for world events
 
 Errors:
-- Last latest months are weird since some values are not yet updated in the database
 
 Optimizations:
 - stop animating when no change on screen

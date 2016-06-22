@@ -7,3 +7,6 @@ http://news.nationalgeographic.com/2015/09/150919-data-points-refugees-migrants-
 
 Country Lat Long:
 https://developers.google.com/public-data/docs/canonical/countries_csv
+
+Deaths:
+http://missingmigrants.iom.int/mediterranean
