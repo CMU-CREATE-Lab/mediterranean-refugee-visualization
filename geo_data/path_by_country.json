@@ -135,6 +135,13 @@
            "Greece"
        ]
    },
+   "Syrian Arab Rep.":{
+       "Greece":[
+           "Syrian Arab Republic",
+           "Turkey",
+           "Greece"
+       ]
+   },
    "Iraq":{
        "Greece":[
            "Iraq",
@@ -186,12 +193,19 @@
   },
   "Kenya":{
       "Spain":[
-               "Kenya",
-               "Sudan",
-               "Libya",
-               "Algeria",
-               "Morocco",
-               "Spain"
+           "Kenya",
+           "Sudan",
+           "Libya",
+           "Algeria",
+           "Morocco",
+           "Spain"
        ]
+  },
+  "Egypt":{
+      "Italy":[
+          "Egypt",
+          "Libya",
+          "Italy"
+      ]
   }
 }

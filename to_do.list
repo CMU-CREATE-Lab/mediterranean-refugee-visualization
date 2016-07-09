@@ -1,11 +1,11 @@
 Visualization
-- print number of people
-- scale amount of people entering country 
+- scale amount of particles entering country 
 
 UI
 - hover over month for world events
 
 Errors:
+- Malta doesn't return data from UNCHR API
 
 Optimizations:
 - stop animating when no change on screen
