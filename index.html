@@ -1,6 +1,8 @@
 <!doctype html>
 <html>
   <head>
+    <link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon"> 
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
     <title>Refugees by Mediterranean Sea</title>
     <style type="text/css">
         html, body, #map-div {
@@ -193,6 +195,7 @@
     <script type="text/javascript" src="js/quadraticBezier.js"></script>
     <script type="text/javascript" src="js/LatLon.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+    <script type="text/javascript" src="js/chroma.js"></script>
 
     <script type="text/javascript">
       var map;
@@ -211,7 +214,7 @@
         prev_shown: {},
         paths: {},
         deaths: {},
-        particles: new ParticleManager([]),
+        particles: new ParticleManager(),
         largestValue: {},
         largestOfAll: 0
       };
@@ -229,12 +232,22 @@
           MAX_AMOUNT: 30000,
           origin_interpolate: 25,
           asylum_interpolate: 10,
-          particle_size: .25,
+          particle_size: .15,
           hover: {},
+          cursor: null,
           lasthover: null,
           infowindow: null,
-          colorIndex: 0,
-          colors: ["rgb(0,133,101)", "rgb(0,158,121)", "rgb(0,184,140)", "rgb(0,209,160)", "rgb(0,235,180)"]
+          colors: (function(){
+              colors = [];
+              color = chroma('aquamarine');
+              for(var i = .1; i < .85; i+= .01){
+                  colors.push(color.luminance(i, 'hsl').css());
+              }
+              for(var i = .85; i > .1; i-= .01){
+                  colors.push(color.luminance(i, 'hsl').css());
+              }
+              return colors;
+          })()
       }
 
       var resolutionScale = window.devicePixelRatio || 1;
@@ -247,7 +260,7 @@
       function Particle(path, radius, color){
           this.path = path;
           this.radius = radius || drawBack.particle_size;
-          this.color = color || "black";
+          this.color = color || drawBack.colors[0];
           this.percent = 0;
           this.draw = function(){
               var currentPoint = this.path.getPointAtPercentage(this.percent);
@@ -255,10 +268,7 @@
               particleContext.fillRect(currentPoint.x, currentPoint.y,radius, radius);
           };
           this.incrementPercent = function(){
-              this.percent += 2.5;
-              if(this.percent > 100) {
-                  this.percent = 100;
-              };
+              this.percent = (this.percent > 100) ? 100 : this.percent + 1;
           };
           this.isComplete = function(){
               return (this.percent >= 100);
@@ -266,40 +276,41 @@
       }
       function ParticleSet(particle, amount){
           this.particle = particle;
-          this.amount = amount;
+          this.particles = (()=>{
+              var particles = [];
+              var i = amount;
+              var colorIndex = 0;
+              while(i--){
+                  particles.push(new Particle(this.particle.path, this.particle.radius, drawBack.colors[colorIndex]));
+                  colorIndex = (colorIndex >= drawBack.colors.length-1) ? 0 : colorIndex + 1;
+              }
+              return particles;
+          })();
           this.ejectParticle = function(){
-              this.amount--;
-              var colorIndex = drawBack.colorIndex;
-              drawBack.colorIndex = (colorIndex >= drawBack.colors.length-1) ? 0 : colorIndex + 1;
-              return new Particle(this.particle.path, this.particle.radius, drawBack.colors[colorIndex]);
+              return this.particles.pop();
           }
           this.isComplete = function(){
-              return !this.amount;
+              return !this.particles.length;
           }
       }
         
-      function ParticleManager(particleArr){
-          this.particleArr = particleArr;
+      function ParticleManager(){
+          this.particles = [];
           this.particleSets = [];
-          this.clock = null;
+          this.clock = false;
           this.iterations = 0;
           this.maxIterations = 0;
           this.addParticle = function(particle){
-              this.particleArr.push(particle);
+              this.particles.push(particle);
           };
           this.addParticleSet = function(particleSet){
               this.particleSets.push(particleSet)
           };
           this.clearParticleArr = function(){
-              this.particleArr = [];
+              this.particles = [];
           };
           this.clearParticleSets = function(){
               this.particleSets = [];
-          };
-          this.clearClock = function(){
-              clearInterval(this.clock);
-              this.clock = null;
-              this.iterations = 0;
           };
           this.injectParticles = function(){
               var i = this.particleSets.length;
@@ -312,69 +323,56 @@
                   }
               }
           };
-           this.setClock = function(interval, maxIterations){
-              this.maxIterations = maxIterations;
+          this.updateClock = function(){
+              var iterations = refugees.particles.iterations;
+              if(iterations > this.maxIterations){
+                  refugees.particles.clearClock();
+              }else{
+                  refugees.particles.injectParticles();
+                  refugees.particles.iterations = iterations + 1;
+              }
+              refugees.particles.setCursorLine();
+          }
+          this.clearClock = function(){
+              this.iterations = 0;
+              this.clock = false;
+          };
+          this.setClock = function(maxIterations){
               particleLayer.setAnimate(true);
-              this.clock = setInterval(function(){
-                  var iterations = refugees.particles.iterations;
-                  if(iterations > maxIterations){
-                      refugees.particles.clearClock();
-                  }else{
-                      refugees.particles.injectParticles();
-                      refugees.particles.iterations = iterations + 1;
-                  }
-                  refugees.particles.setCursorLine();
-              }, interval)
-        
+              this.maxIterations = maxIterations;
+              this.clock = true;
           };
           this.setCursorLine = function(){
-              $(".cursor > .line").css('left', (this.iterations/this.maxIterations * 100)+"%");
+              drawBack.cursor.style.left =
+                  (this.iterations/this.maxIterations * 100)+"%";
           };
           this.draw = function(){
-              var i = this.particleArr.length;
+              var i = this.particles.length;
               while(i--){
-                  var particle = this.particleArr[i];
+                  var particle = this.particles[i];
                   if(particle.isComplete()){
-                      this.particleArr.splice(i,1);
-                      particleLayer.setAnimate(this.particleArr.length);
+                      this.particles.splice(i,1);
                   }else{
                       particle.incrementPercent();
                       particle.draw(particleContext);
                   }
               }
+              particleLayer.setAnimate(this.particles.length || this.particleSets.length);
+
           };
       }
           
       function calculateRadius(amount){
           return drawBack.particle_size;
       }
-        
-      function calculateInterval(largestVal){
-          return 1000/largestVal;
-      }
           
-      function scale(amount){
-          // switch(true){
-          //     case (amount < 500):
-          //         amount;
-          //         break;
-          //     case (amount < 1000):
-          //         Math.round(amount/2);
-          //         break;
-          //     case 
-          // }
-          return amount;
-      }
-        
       function processParticles(){
           refugees.particles.clearParticleSets();
-          var largestVal = 0;
           var raw_data = refugees.draw_data.raw;
           for(var asyl_key in raw_data){
               var or_data = raw_data[asyl_key][refugees.currentDate.year][refugees.currentDate.month];
               for(var or_key in or_data){
                   var amount = or_data[or_key];
-                  largestVal = (amount > largestVal) ? amount : largestVal;
                   if(amount>0){
                       try{
                           refugees.particles.addParticleSet(
@@ -389,11 +387,12 @@
               }
           }
           refugees.particles.clearClock();
-          refugees.particles.setClock(calculateInterval(largestVal), scale(largestVal));
+          refugees.particles.setClock(refugees.largestValue[refugees.currentDate.year][refugees.currentDate.month]);
       }
     
       function upDate(){
         refugees.currentDate = new Date_M_Y($('.cursor').data('month'), $('.cursor').parent().data('year'));
+        drawBack.cursor = document.getElementsByClassName("cursor")[0].getElementsByClassName("line")[0];
         processParticles()
         if (!circleLayer.isAnimated())
             circleLayer.setAnimate(true);
@@ -405,28 +404,28 @@
         updateHoverBox();
       }
 
-      function testAllPaths(){
-          var data = [];
-          for(var or_key in refugees.paths){
-              for(var asyl_key in refugees.paths[or_key]){
-                  var path = refugees.paths[or_key][asyl_key]["path"];
-                  data.push(or_key, asyl_key, path);
-              }
-          }
-          delayExecute(data, 0);
-      }
+//       function testAllPaths(){
+//           var data = [];
+//           for(var or_key in refugees.paths){
+//               for(var asyl_key in refugees.paths[or_key]){
+//                   var path = refugees.paths[or_key][asyl_key]["path"];
+//                   data.push(or_key, asyl_key, path);
+//               }
+//           }
+//           delayExecute(data, 0);
+//       }
         
-      function delayExecute(data, i){
-          setTimeout(function(){
-              console.log(data[i], data[i+1]);
-              refugees.particles.addParticle(data[i+2]);
-              console.log("done.");
-              var j = i+3;
-              if(j < data.length){
-                  delayExecute(data, j);
-              }
-          }, 3000);
-      }
+//       function delayExecute(data, i){
+//           setTimeout(function(){
+//               console.log(data[i], data[i+1]);
+//               refugees.particles.addParticle(data[i+2]);
+//               console.log("done.");
+//               var j = i+3;
+//               if(j < data.length){
+//                   delayExecute(data, j);
+//               }
+//           }, 3000);
+//       }
 
       function togglePlayPause(){
         playBack.playing = !playBack.playing;
@@ -582,8 +581,6 @@
                           currentLargest = refugees.largestValue[year][month];
                           refugees.largestValue[year][month] = (currentVal > currentLargest) ? currentVal : currentLargest;
                       }
-                      currentLargest = refugees.largestValue[year][month];
-                      refugees.largestValue[year][month] = (total > currentLargest) ? total : currentLargest;
                   }
               }
           }
@@ -632,6 +629,7 @@
         makePath(circleContext, path);
         circleContext.lineWidth = .35;
         circleContext.strokeStyle = convert_to_color(data);
+        circleContext.lineCap = "round";
         circleContext.stroke();
       }
         
@@ -640,47 +638,32 @@
       
         
       function particleUpdate(){
-          var canvasWidth = particleLayer.canvas.width;
-          var canvasHeight = particleLayer.canvas.height;
+          var mapProjection = map.getProjection()
+          var canvasWidth = circleLayer.canvas.width;
+          var canvasHeight = circleLayer.canvas.height;
           particleContext.clearRect(0, 0, canvasWidth, canvasHeight);
-          var mapProjection = map.getProjection();
+          
           particleContext.setTransform(1, 0, 0, 1, 0, 0);
-          var scale = Math.pow(2, map.zoom) * resolutionScale;
+          var scale = (1 << map.zoom) * resolutionScale;
           particleContext.scale(scale, scale);
           var offset = mapProjection.fromLatLngToPoint(particleLayer.getTopLeft());
           particleContext.translate(-offset.x, -offset.y);
           
+          if(refugees.particles.clock){
+              refugees.particles.updateClock();
+          }
           refugees.particles.draw();
       }
 
       function update() {
-        // clear previous canvas contents
+        var mapProjection = map.getProjection()
         var canvasWidth = circleLayer.canvas.width;
         var canvasHeight = circleLayer.canvas.height;
         circleContext.clearRect(0, 0, canvasWidth, canvasHeight);
-   
-        /* We need to scale and translate the map for current view.
-         * see https://developers.google.com/maps/documentation/javascript/maptypes#MapCoordinates
-         */
-        var mapProjection = map.getProjection();
 
-        /**
-         * Clear transformation from last update by setting to identity matrix.
-         * Could use context.resetTransform(), but most browsers don't support
-         * it yet.
-         */
         circleContext.setTransform(1, 0, 0, 1, 0, 0);
-        
-        // scale is just 2^zoom
-        // If circleLayer is scaled (with resolutionScale), we need to scale by
-        // the same amount to account for the larger canvas.
-        var scale = Math.pow(2, map.zoom) * resolutionScale;
+        var scale = (1 << map.zoom) * resolutionScale;
         circleContext.scale(scale, scale);
-
-        /* If the map was not translated, the topLeft corner would be 0,0 in
-         * world coordinates. Our translation is just the vector from the
-         * world coordinate of the topLeft corder to 0,0.
-         */
         var offset = mapProjection.fromLatLngToPoint(circleLayer.getTopLeft());
         circleContext.translate(-offset.x, -offset.y);
            
@@ -789,30 +772,27 @@
           for(var asyl_key in refugees.geo_data.asylum_geo){
               var latlon = refugees.geo_data.asylum_geo[asyl_key];
               var dist = getDistance(latlon, testPoint);
-              if(dist < closestDist){
-                  closestDist = dist;
-                  closest = {name:asyl_key, type:"asylum", latlon:latlon};
+              if(dist < threshold){
+                  return {name:asyl_key, type:"asylum", latlon:latlon};
               }
           }
           for(var or_key in refugees.geo_data.origin_geo){
               var latlon = refugees.geo_data.origin_geo[or_key];
               var dist = getDistance(latlon, testPoint);
-              if(dist < closestDist){
+              if(dist < threshold){
                   closestDist = dist;
-                  //deal with this         vvvvvv
-                  closest = {name:or_key, type:"origin", latlon:latlon};
+                  return {name:or_key, type:"origin", latlon:latlon};
               }
           }
           
           var latlon = refugees.deaths.location;
           var dist = getDistance(latlon, testPoint);
           
-          if(dist < closestDist){
-              closestDist = dist;
-              closest = {name:"deaths", type:"deaths", latlon:latlon};
+          if(dist < threshold){
+              return {name:"deaths", type:"deaths", latlon:latlon};
           }
           
-          return (closestDist < threshold) ? closest : {name:"None Found", data:{}, latlon: null};
+          return {name:"None Found", data:{}, latlon: null};
       }
       
       function processMapHover(event){
@@ -827,6 +807,10 @@
           }
           updateHoverBox();
       }
+      //from https://stackoverflow.com/questions/2901102/how-to-print-a-number-with-commas-as-thousands-separators-in-javascript
+      function numberWithCommas(x) {
+          return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      }
         
       function updateHoverBox(){
           var hoverHTML = [];
@@ -838,31 +822,31 @@
               var name = drawBack.hover.name;
               switch(drawBack.hover.type){
                   case "asylum":
-                      hoverHTML.push('<p><strong>'+name+':</strong> asylum country</p>');
+                      hoverHTML.push('<p><strong>',name,':</strong> asylum country</p>');
                       var total = 0
                       var data = refugees.draw_data.raw[name][year][month];
                       for(var or_key in data){
                           var amount = data[or_key];
-                          hoverHTML.push('<p>From <strong>' + or_key + '</strong>: ' + amount + '</p>');
+                          hoverHTML.push('<p>From <strong>',or_key,'</strong>: ',numberWithCommas(amount),'</p>');
                           total += amount;
                       }
-                      hoverHTML.push('<p>Total: ' + total + '</p>');
+                      hoverHTML.push('<p>Total: ',numberWithCommas(total),'</p>');
                       break;
                   case "origin":
-                      hoverHTML.push('<p><strong>'+name+':</strong> origin country</p>');
+                      hoverHTML.push('<p><strong>',name,':</strong> origin country</p>');
                       var total = 0;
                       for(var asyl_key in refugees.draw_data.raw){
                           var data = refugees.draw_data.raw[asyl_key][year][month];
                           if(name in data){
                               var amount = data[name];
-                              hoverHTML.push('<p>To <strong>' + asyl_key + '</strong>: ' + amount + '</p>');
+                              hoverHTML.push('<p>To <strong>',asyl_key,'</strong>: ',numberWithCommas(amount),'</p>');
                               total += amount;
                           }  
                       }
-                      hoverHTML.push('<p>Total: ' + total + '</p>');
+                      hoverHTML.push('<p>Total: ',numberWithCommas(total),'</p>');
                       break;
                   case "deaths":
-                      hoverHTML.push('<p>Deaths: ' + refugees.deaths[year][month] + '</p>');
+                      hoverHTML.push('<p>Deaths: ',numberWithCommas(refugees.deaths[year][month]),'</p>');
                       break;
                   default:
                       console.log(drawBack.hover);
@@ -874,7 +858,46 @@
               drawBack.infowindow = null;
               return;
           }
-
+          var dateString = '';
+          switch(month){
+              case 1:
+                  dateString = "January ";
+                  break;
+              case 2:
+                  dateString = "February ";
+                  break;
+              case 3:
+                  dateString = "March ";
+                  break;
+              case 4:
+                  dateString = "April ";
+                  break;
+              case 5:
+                  dateString = "May ";
+                  break;
+              case 6:
+                  dateString = "June ";
+                  break;
+              case 7:
+                  dateString = "July ";
+                  break;
+              case 8:
+                  dateString = "August ";
+                  break;
+              case 9:
+                  dateString = "September ";
+                  break;
+              case 10:
+                  dateString = "October ";
+                  break;
+              case 11:
+                  dateString = "November ";
+                  break;
+              case 12:
+                  dateString = "December ";
+                  break;
+          }
+          hoverHTML.push('<p>',dateString,year,'</p>')
           hoverHTML.push('</div>');
           if(drawBack.infowindow){
               drawBack.infowindow.setContent(hoverHTML.join(''));

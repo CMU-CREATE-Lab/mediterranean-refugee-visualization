@@ -34,7 +34,7 @@ function Path(startPoint, curves) {
     this.startPoint = startPoint;
     this.curves = curves || [];
     this.lengthPercentages = getLengthPercentages(this) || [];
-    this.getPointAtPercentage = function(percent) {
+    this.calcPointAtPercentage = function(percent) {
         var sum = 0;
         for (var i = 0; i < this.curves.length; i++) {
             sum += this.lengthPercentages[i];
@@ -43,8 +43,17 @@ function Path(startPoint, curves) {
                 return getQuadraticBezierXYatPercent(this.curves[i], percent);
             }
         }
-
         return null;
+    }
+    this.precomputedPoints = (()=>{
+        var precompPoints = [];
+        for(var percent = 0; percent <= 100; percent++){
+             precompPoints.push(this.calcPointAtPercentage(percent));
+        }
+        return precompPoints;
+    })();
+    this.getPointAtPercentage = function(percent){
+        return this.precomputedPoints[percent]
     }
 }
 
