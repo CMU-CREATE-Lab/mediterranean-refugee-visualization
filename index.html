@@ -195,6 +195,7 @@
     <script type="text/javascript" src="js/quadraticBezier.js"></script>
     <script type="text/javascript" src="js/LatLon.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+    <script type="text/javascript" src="js/rAF.js"></script>
     <script type="text/javascript" src="js/chroma.js"></script>
 
     <script type="text/javascript">
@@ -232,14 +233,16 @@
           MAX_AMOUNT: 30000,
           origin_interpolate: 25,
           asylum_interpolate: 10,
-          particle_size: .15,
+          particle_size: .2,
           hover: {},
           cursor: null,
           lasthover: null,
           infowindow: null,
+          animateParticles: false,
+          animationRequestID: null,
           colors: (function(){
               colors = [];
-              color = chroma('aquamarine');
+              color = chroma('teal');
               for(var i = .1; i < .85; i+= .01){
                   colors.push(color.luminance(i, 'hsl').css());
               }
@@ -247,7 +250,10 @@
                   colors.push(color.luminance(i, 'hsl').css());
               }
               return colors;
-          })()
+          })(),
+          currentSpriteIndex: 0,
+          particleSpriteSheet: null,
+          spriteContext: null,
       }
 
       var resolutionScale = window.devicePixelRatio || 1;
@@ -256,43 +262,48 @@
           this.month = month;
           this.year = year;
       }
-              
+        
       function Particle(path, radius, color){
           this.path = path;
           this.radius = radius || drawBack.particle_size;
           this.color = color || drawBack.colors[0];
           this.percent = 0;
+      }
+        (function() {
           this.draw = function(){
               var currentPoint = this.path.getPointAtPercentage(this.percent);
               particleContext.fillStyle = this.color;
-              particleContext.fillRect(currentPoint.x, currentPoint.y,radius, radius);
+              particleContext.fillRect(currentPoint.x, currentPoint.y,this.radius, this.radius);
+              // particleContext.drawImage(drawBack.particleSpriteSheet,0,0,radius,radius,currentPoint.x-radius/2, currentPoint.y-radius/2, radius, radius);
           };
           this.incrementPercent = function(){
-              this.percent = (this.percent > 100) ? 100 : this.percent + 1;
+              this.percent++;
           };
           this.isComplete = function(){
               return (this.percent >= 100);
           };
-      }
+        }).call(Particle.prototype);
+        
       function ParticleSet(particle, amount){
-          this.particle = particle;
           this.particles = (()=>{
               var particles = [];
               var i = amount;
               var colorIndex = 0;
               while(i--){
-                  particles.push(new Particle(this.particle.path, this.particle.radius, drawBack.colors[colorIndex]));
+                  particles.push(new Particle(particle.path, particle.radius, drawBack.colors[colorIndex]));
                   colorIndex = (colorIndex >= drawBack.colors.length-1) ? 0 : colorIndex + 1;
               }
               return particles;
           })();
+      }
+     (function(){
           this.ejectParticle = function(){
               return this.particles.pop();
           }
           this.isComplete = function(){
               return !this.particles.length;
           }
-      }
+     }).call(ParticleSet.prototype);
         
       function ParticleManager(){
           this.particles = [];
@@ -300,6 +311,8 @@
           this.clock = false;
           this.iterations = 0;
           this.maxIterations = 0;
+      }
+      (function(){
           this.addParticle = function(particle){
               this.particles.push(particle);
           };
@@ -324,21 +337,21 @@
               }
           };
           this.updateClock = function(){
-              var iterations = refugees.particles.iterations;
-              if(iterations > this.maxIterations){
-                  refugees.particles.clearClock();
+              if(this.iterations > this.maxIterations){
+                  this.clearClock();
               }else{
-                  refugees.particles.injectParticles();
-                  refugees.particles.iterations = iterations + 1;
+                  this.injectParticles();
+                  this.iterations++;
               }
-              refugees.particles.setCursorLine();
+              this.setCursorLine();
           }
           this.clearClock = function(){
               this.iterations = 0;
               this.clock = false;
           };
           this.setClock = function(maxIterations){
-              particleLayer.setAnimate(true);
+              drawBack.animateParticles = true;
+              animateParticles()
               this.maxIterations = maxIterations;
               this.clock = true;
           };
@@ -350,16 +363,28 @@
               var i = this.particles.length;
               while(i--){
                   var particle = this.particles[i];
+                  particle.incrementPercent();
                   if(particle.isComplete()){
                       this.particles.splice(i,1);
                   }else{
-                      particle.incrementPercent();
-                      particle.draw(particleContext);
+                      particle.draw();
                   }
               }
-              particleLayer.setAnimate(this.particles.length || this.particleSets.length);
-
+              drawBack.animateParticles = (this.particles.length || this.particleSets.length);
           };
+      }).call(ParticleManager.prototype)
+        
+      function animateParticles(){
+          particleContext.clearRect(0, 0, particleLayer.canvas.width, particleLayer.canvas.height);
+          if(drawBack.animateParticles){
+              if(refugees.particles.clock){
+                  refugees.particles.updateClock();
+              }
+              refugees.particles.draw();
+              drawBack.animationRequestID = requestAnimationFrame(animateParticles);
+          }else{
+              cancelAnimationFrame(drawBack.animationRequestID);
+          }
       }
           
       function calculateRadius(amount){
@@ -641,18 +666,15 @@
           var mapProjection = map.getProjection()
           var canvasWidth = circleLayer.canvas.width;
           var canvasHeight = circleLayer.canvas.height;
-          particleContext.clearRect(0, 0, canvasWidth, canvasHeight);
+          // particleContext.clearRect(0, 0, canvasWidth, canvasHeight);
           
           particleContext.setTransform(1, 0, 0, 1, 0, 0);
+          drawBack.spriteContext.setTransform(1, 0, 0, 1, 0, 0);
           var scale = (1 << map.zoom) * resolutionScale;
           particleContext.scale(scale, scale);
+          drawBack.spriteContext.scale(scale, scale);
           var offset = mapProjection.fromLatLngToPoint(particleLayer.getTopLeft());
           particleContext.translate(-offset.x, -offset.y);
-          
-          if(refugees.particles.clock){
-              refugees.particles.updateClock();
-          }
-          refugees.particles.draw();
       }
 
       function update() {
@@ -1104,7 +1126,22 @@
       
       function init() {
         map = initMap();
-          
+        drawBack.particleSpriteSheet = (function(){
+              var spriteSheetCanvas = document.createElement('canvas');
+              var particleSize = drawBack.particle_size;
+              var colors = drawBack.colors;
+              spriteSheetCanvas.width = Math.ceil(particleSize) * colors.length;
+              spriteSheetCanvas.height = Math.ceil(particleSize);
+              var spriteSheetContext = spriteSheetCanvas.getContext("2d");
+              for(var i = 0, len = colors.length; i < len; i++){
+                  var centerX = particleSize/2 + i*particleSize;
+                  var centerY = particleSize/2;
+                  spriteSheetContext.fillStyle = colors[i];
+                  spriteSheetContext.fillRect(centerX, centerY,particleSize, particleSize);
+              }
+              return spriteSheetCanvas;
+          })()
+        drawBack.spriteContext = drawBack.particleSpriteSheet.getContext('2d');
         load(refugees.geo_url).then(function(response){
             geo_handler(response);
         }, function(error){
@@ -1121,7 +1158,7 @@
                     circleLayer = initCanvasLayer(update, false);
                     circleContext = circleLayer.canvas.getContext('2d');
                     
-                    particleLayer = initCanvasLayer(particleUpdate, true);
+                    particleLayer = initCanvasLayer(particleUpdate, false);
                     particleContext = particleLayer.canvas.getContext('2d');
                     
                     var el = document.getElementById("loading");

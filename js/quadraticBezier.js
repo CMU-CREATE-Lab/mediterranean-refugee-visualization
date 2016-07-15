@@ -34,6 +34,15 @@ function Path(startPoint, curves) {
     this.startPoint = startPoint;
     this.curves = curves || [];
     this.lengthPercentages = getLengthPercentages(this) || [];
+    this.precomputedPoints = (()=>{
+        var precompPoints = [];
+        for(var percent = 0; percent <= 100; percent++){
+             precompPoints.push(this.calcPointAtPercentage(percent));
+        }
+        return precompPoints;
+    })();
+}
+(function(){
     this.calcPointAtPercentage = function(percent) {
         var sum = 0;
         for (var i = 0; i < this.curves.length; i++) {
@@ -44,18 +53,11 @@ function Path(startPoint, curves) {
             }
         }
         return null;
-    }
-    this.precomputedPoints = (()=>{
-        var precompPoints = [];
-        for(var percent = 0; percent <= 100; percent++){
-             precompPoints.push(this.calcPointAtPercentage(percent));
-        }
-        return precompPoints;
-    })();
+    };
     this.getPointAtPercentage = function(percent){
         return this.precomputedPoints[percent]
-    }
-}
+    };
+}).call(Path.prototype)
 
 /**
  * Returns an array of each curve's percentage of a path
