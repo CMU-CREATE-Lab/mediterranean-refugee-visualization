@@ -241,12 +241,14 @@
           animateParticles: false,
           animationRequestID: null,
           colors: (function(){
-              colors = [];
-              color = chroma('teal');
-              for(var i = .1; i < .85; i+= .01){
+              var colors = [];
+              var color = chroma('teal');
+              var leftVal = .2;
+              var rightVal = .9;
+              for(var i = leftVal; i < rightVal; i+= .01){
                   colors.push(color.luminance(i, 'hsl').css());
               }
-              for(var i = .85; i > .1; i-= .01){
+              for(var i = rightVal; i > leftVal; i-= .01){
                   colors.push(color.luminance(i, 'hsl').css());
               }
               return colors;
@@ -381,9 +383,7 @@
                   refugees.particles.updateClock();
               }
               refugees.particles.draw();
-              drawBack.animationRequestID = requestAnimationFrame(animateParticles);
-          }else{
-              cancelAnimationFrame(drawBack.animationRequestID);
+              requestAnimationFrame(animateParticles);
           }
       }
           

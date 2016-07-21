@@ -42,6 +42,7 @@ function Path(startPoint, curves) {
         return precompPoints;
     })();
 }
+
 (function(){
     this.calcPointAtPercentage = function(percent) {
         var sum = 0;
