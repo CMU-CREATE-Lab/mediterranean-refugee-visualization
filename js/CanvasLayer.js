@@ -119,20 +119,6 @@ function CanvasLayer(opt_options) {
   this.canvas = canvas;
 
   /**
-   * The CSS width of the canvas, which may be different than the width of the
-   * backing store.
-   * @private {number}
-   */
-  this.canvasCssWidth_ = 300;
-
-  /**
-   * The CSS height of the canvas, which may be different than the height of
-   * the backing store.
-   * @private {number}
-   */
-  this.canvasCssHeight_ = 150;
-
-  /**
    * A value for scaling the CanvasLayer resolution relative to the CanvasLayer
    * display size.
    * @private {number}
@@ -269,7 +255,7 @@ CanvasLayer.prototype.setOptions = function(options) {
   }
 
   if (options.resolutionScale !== undefined) {
-    this.setResolutionScale(options.resolutionScale);
+      this.setResolutionScale(options.resolutionScale);
   }
 
   if (options.map !== undefined) {
@@ -354,10 +340,10 @@ CanvasLayer.prototype.setResizeHandler = function(opt_resizeHandler) {
  * @param {number} scale
  */
 CanvasLayer.prototype.setResolutionScale = function(scale) {
-  if (typeof scale === 'number') {
-    this.resolutionScale_ = scale;
-    this.resize_();
-  }
+    if (typeof scale === 'number') {
+	this.resolutionScale_ = scale;
+	this.resize_();
+    }
 };
 
 /**
@@ -433,6 +419,7 @@ CanvasLayer.prototype.resize_ = function() {
   var mapWidth = map.getDiv().offsetWidth;
   var mapHeight = map.getDiv().offsetHeight;
 
+
   var newWidth = mapWidth * this.resolutionScale_;
   var newHeight = mapHeight * this.resolutionScale_;
   var oldWidth = this.canvas.width;
@@ -442,18 +429,11 @@ CanvasLayer.prototype.resize_ = function() {
   if (oldWidth !== newWidth || oldHeight !== newHeight) {
     this.canvas.width = newWidth;
     this.canvas.height = newHeight;
+    this.canvas.style.width = mapWidth + 'px';
+    this.canvas.style.height = mapHeight + 'px';
 
     this.needsResize_ = true;
     this.scheduleUpdate();
-  }
-
-  // reset styling if new sizes don't match; resize of data not needed
-  if (this.canvasCssWidth_ !== mapWidth ||
-      this.canvasCssHeight_ !== mapHeight) {
-    this.canvasCssWidth_ = mapWidth;
-    this.canvasCssHeight_ = mapHeight;
-    this.canvas.style.width = mapWidth + 'px';
-    this.canvas.style.height = mapHeight + 'px';
   }
 };
 
@@ -475,26 +455,31 @@ CanvasLayer.prototype.repositionCanvas_ = function() {
   //     this causes noticeable hitches in map and overlay relative
   //     positioning.
 
+  // canvas position relative to draggable map's conatainer depends on
+  // overlayView's projection, not the map's
   var map = this.getMap();
-
-  // topLeft can't be calculated from map.getBounds(), because bounds are
-  // clamped to -180 and 180 when completely zoomed out. Instead, calculate
-  // left as an offset from the center, which is an unwrapped LatLng.
-  var top = map.getBounds().getNorthEast().lat();
-  var center = map.getCenter();
-  var scale = Math.pow(2, map.getZoom());
-  var left = center.lng() - (this.canvasCssWidth_ * 180) / (256 * scale);
-  this.topLeft_ = new google.maps.LatLng(top, left);
-
-  // Canvas position relative to draggable map's container depends on
-  // overlayView's projection, not the map's. Have to use the center of the
-  // map for this, not the top left, for the same reason as above.
   var projection = this.getProjection();
-  var divCenter = projection.fromLatLngToDivPixel(center);
-  var offsetX = -Math.round(this.canvasCssWidth_ / 2 - divCenter.x);
-  var offsetY = -Math.round(this.canvasCssHeight_ / 2 - divCenter.y);
+  this.topLeft_ = projection.fromContainerPixelToLatLng(new google.maps.Point(0,0));
+  var divTopLeft = projection.fromLatLngToDivPixel(this.topLeft_);
+  var containerTopLeft = projection.fromLatLngToContainerPixel(this.topLeft_);
+  
   this.canvas.style[CanvasLayer.CSS_TRANSFORM_] = 'translate(' +
-      offsetX + 'px,' + offsetY + 'px)';
+      Math.round(divTopLeft.x - containerTopLeft.x) + 'px,' + Math.round(divTopLeft.y - containerTopLeft.y) + 'px)';
+
+  // Where is northwest corner of earth compared to northwest corner of canvas?  If there's more than one
+  // projection displaying (i.e. the international date line is visible one or more times), select 
+  // projection which covers the center pixel of the container
+  this.mapScale_ = Math.pow(2, map.zoom);
+  var projectionWidth = projection.getWorldWidth() / this.mapScale_;
+
+  this.mapTranslation_ = map.getProjection().fromLatLngToPoint(this.getTopLeft());
+  this.mapTranslation_.x = -this.mapTranslation_.x;
+  this.mapTranslation_.y = -this.mapTranslation_.y;
+
+  // Calculate how many projectionWidths we can move to the right before the origin crosses the center pixel of the container    
+  var advance = Math.floor(((0.5 * this.canvas.width / this.mapScale_) - this.mapTranslation_.x) / projectionWidth);
+
+  this.mapTranslation_.x += advance * projectionWidth;
 
   this.scheduleUpdate();
 };
@@ -533,6 +518,14 @@ CanvasLayer.prototype.update_ = function() {
  */
 CanvasLayer.prototype.getTopLeft = function() {
   return this.topLeft_;
+};
+
+CanvasLayer.prototype.getMapTranslation = function() {
+  return this.mapTranslation_;
+};
+
+CanvasLayer.prototype.getMapScale = function() {
+  return this.mapScale_;
 };
 
 /**

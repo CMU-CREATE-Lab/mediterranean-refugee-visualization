@@ -4,191 +4,7 @@
     <link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon"> 
     <link rel="icon" href="data:;base64,iVBORw0KGgo=">
     <title>Refugees by Mediterranean Sea</title>
-    <style type="text/css">
-        html, body, #map-div {
-              margin: 0;
-              padding: 0;
-              height: 100%;
-              font-family: monospace;
-        }
-
-        .noselect {
-          -webkit-touch-callout: none; /* iOS Safari */
-          -webkit-user-select: none;   /* Chrome/Safari/Opera */
-          -khtml-user-select: none;    /* Konqueror */
-          -moz-user-select: none;      /* Firefox */
-          -ms-user-select: none;       /* Internet Explorer/Edge */
-          user-select: none;           /* Non-prefixed version, currently
-                                          not supported by any browser */
-        }
-        
-        #map-div{
-            position: absolute; 
-            top: 0px; 
-            width: 100%; 
-            height: calc(100% - 55px);
-        }
-        
-        #time-slider{
-            position: absolute;  
-            bottom: 0px; 
-            width: 100%; 
-            height: 56px; 
-            background-color: rgb(30,30,30);
-        }
-
-        .cursor{
-          background-color: rgb(160,160,160) !important;
-        }
-        
-        .trapezoid {
-          border-bottom: 25px solid rgba(255,10,10,.5);
-          border-left: 15px solid transparent;
-          border-right: 15px solid transparent;
-          height: 0;
-          width: 7px;
-          transform: scaleY(-1) translateY(-6px);
-        }
-
-        .bar{
-          margin-left: 15px;
-          width: 7px;
-          height: 45%;
-          background-color: rgba(255,10,10,.5);
-          transform: translateY(23%);
-        }
-        
-        #play-button{
-            position: relative;
-            float: left;
-            width: 50px;
-            height: 50px;
-            background-color: rgb(30,30,30);
-            border-bottom: 5px rgb(30,30,30);
-        }
-
-        #circle{
-            position: absolute;
-            width: 70%;
-            height: 70%;
-            -moz-border-radius: 50px/50px;
-            -webkit-border-radius: 50px 50px;
-            border-radius: 50px/50px;
-            border:solid 2px rgb(130,130,130);
-            top: 60%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            transition: background-color .3s;
-        }
-
-        #circle:hover{
-            background-color: rgb(100,100,100);
-            cursor: pointer;
-        }
-
-        #circle:hover > .play{
-          border-left: 12px solid rgb(30,30,30);
-        }
-
-        #circle:hover > .pause{
-          background-color: rgb(30,30,30);
-        }
-
-        .play{
-            position: absolute;
-            width: 0; 
-            height: 0; 
-            border-top: 12px solid transparent;
-            border-bottom: 12px solid transparent;
-            border-left: 12px solid rgb(130,130,130);
-            top: 50%;
-            left: 54%;
-            transform: translate(-50%, -50%);
-        }
-
-        .pause{
-            position: absolute;
-            width: 15px;
-            height: 15px;
-            background-color: rgb(130,130,130);
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            border: 1px solid black;
-        }
-        
-        .year{
-            position: relative;
-            float: left;
-            width: calc((100% - 50px)/3);
-            height: 50px;
-            /**background-color: blue;**/
-            text-align: center;
-        }
-        
-        .year > p{
-            position: relative; 
-            margin-top: 30px; 
-            text-align: center;
-            font-size: 13px;
-            color: white;
-        }
-        
-        .month{
-            position: relative;
-            height: 50%;
-            width: calc(100%/12);
-            background-color: rgb(20,20,20);
-            float: left;
-            transition: background-color .3s;
-        }
-        
-        .valid{
-            background-color: rgb(60,60,60);
-        }
-        
-        .valid:hover{
-            background-color: rgb(100,100,100);
-            cursor: pointer;
-        }
-        
-        .month > p{
-            font-size: 11px;
-            margin-top: 4px;
-            color: white;
-        }
-        
-        .line {
-/*             transition: left 10ms; */
-        }
-        
-        .cursor > .line {
-            display: block;
-            background-color: red;
-            width: 2px;
-            height: 100%;
-            position: absolute;
-            top: 0px;
-            z-index: 10;
-        }
-        
-        .line {
-            display: none;
-        }
-        
-        
-        #loading {
-          background: url(images/loading.gif) no-repeat center;
-          pointer-events: none;
-          position: absolute;
-          height: 50px;
-          width: 50px;
-          z-index: 100;
-          top: 50%;
-          left: 50%;
-
-        }
-    </style>
+    <link rel="stylesheet" type="text/css" href="style.css">
 
     <script src="http://maps.googleapis.com/maps/api/js?key=AIzaSyDC5znDfzJNHdK_Bc9jTPIVS4BUZhYeOAA"></script>
     <script type="text/javascript" src="js/CanvasLayer.js"></script>
@@ -197,25 +13,85 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
     <script type="text/javascript" src="js/rAF.js"></script>
     <script type="text/javascript" src="js/chroma.js"></script>
+    <script type="text/javascript" src="js/Glb.js"></script>
+    
+      
+    <script id="point-vertex-shader" type="x-shader/x-vertex">
+      attribute vec4 aStartPoint; 
+      attribute vec4 aEndPoint; 
+      attribute vec4 aMidPoint; 
+      attribute float aEpoch;
+      attribute float aSpan;
+      //attribute float aCoo;
+      //attribute float aCor;
 
+      uniform float uSize;
+      uniform float uEpoch;
+      //uniform float uSpan;
+      uniform mat4 uMapMatrix;
+
+      vec4 bezierCurve(float t, vec4 P0, vec4 P1, vec4 P2) {
+        return (1.0-t)*(1.0-t)*P0 + 2.0*(1.0-t)*t*P1 + t*t*P2;
+        //return vec4((1.0 - t)*P0 + t*P2);
+        //return P0;
+      }
+
+      void main() {
+        vec4 position;
+        if (uEpoch < aEpoch || (uEpoch > aEpoch + aSpan)) {
+          position = vec4(-1,-1,-1,-1);
+        } else {
+          float t = (uEpoch - aEpoch)/aSpan;
+          vec4 pos = bezierCurve(t, aStartPoint, aMidPoint, aEndPoint);
+          position = uMapMatrix * vec4(pos.x, pos.y, 0, 1);
+        }
+
+        gl_Position = position;
+        gl_PointSize = uSize;
+        gl_PointSize = 4.;
+
+      }
+    </script>
+      
+      
+    <script id="point-fragment-shader" type="x-shader/x-fragment">
+      precision mediump float;
+
+      void main() {
+          float dist = length(gl_PointCoord.xy - vec2(.5, .5));
+          dist = 1. - (dist * 2.);
+          dist = max(0., dist);
+          gl_FragColor = vec4(1., 0., 0., 1.) * dist;
+      }
+    </script>
+      
+      
     <script type="text/javascript">
       var map;
       var circleLayer;
-      var particleLayer;
       var circleContext;
-      var particleContext;
-      
+      var particleLayer;
+      var gl;
+      var resolutionScale = window.devicePixelRatio || 1;
+      var pixelsToWebGLMatrix = new Float32Array(16);
+      var mapMatrix = new Float32Array(16);
+      var program;
+        
       var refugees = {
         geo_url: './geo_data/geo_data.json',
         draw_url: './json_store/processed_data.json',
         deaths_url: './json_store/death.json',
-        ready: true,
+        particle_url: './particles.bin',
+        ready: false,
+        pointCount: 0,
+        data: null,
+        arrayBuffer: null,
         geo_data: {},
         draw_data: {},
         prev_shown: {},
         paths: {},
         deaths: {},
-        particles: new ParticleManager(),
+        particles: null,
         largestValue: {},
         largestOfAll: 0
       };
@@ -223,8 +99,12 @@
       var playBack = {
           playing: false,
           player: null,
-          mouseDown: false
+          mouseDown: false,
+          timeline: new Timeline(),
+          cursor: null,
+          cursorLine: null
       }
+     
       
       var drawBack = {
           MAX_RADIUS: 3,
@@ -233,9 +113,7 @@
           MAX_AMOUNT: 30000,
           origin_interpolate: 25,
           asylum_interpolate: 10,
-          particle_size: .2,
           hover: {},
-          cursor: null,
           lasthover: null,
           infowindow: null,
           animateParticles: false,
@@ -252,181 +130,93 @@
                   colors.push(color.luminance(i, 'hsl').css());
               }
               return colors;
-          })(),
-          currentSpriteIndex: 0,
-          particleSpriteSheet: null,
-          spriteContext: null,
+          })()
       }
-
-      var resolutionScale = window.devicePixelRatio || 1;
         
       function Date_M_Y(month, year){
           this.month = month;
           this.year = year;
       }
         
-      function Particle(path, radius, color){
-          this.path = path;
-          this.radius = radius || drawBack.particle_size;
-          this.color = color || drawBack.colors[0];
-          this.percent = 0;
+      var timeEnum = {
+          oneHour: 60*60,
+          twoHours: 2*60*60,
+          threeHours: 3*60*60,
+          sixHours: 6*60*60,
+          oneDay: 24*60*60,
+          twoDays: 2*24*60*60
       }
-        (function() {
-          this.draw = function(){
-              var currentPoint = this.path.getPointAtPercentage(this.percent);
-              particleContext.fillStyle = this.color;
-              particleContext.fillRect(currentPoint.x, currentPoint.y,this.radius, this.radius);
-              // particleContext.drawImage(drawBack.particleSpriteSheet,0,0,radius,radius,currentPoint.x-radius/2, currentPoint.y-radius/2, radius, radius);
-          };
-          this.incrementPercent = function(){
-              this.percent++;
-          };
-          this.isComplete = function(){
-              return (this.percent >= 100);
-          };
-        }).call(Particle.prototype);
+      
+      function Timeline(){
+          this.currentTime = 0;
+          this.startTime = 0;
+          this.endTime = 0;
+          this.increment = 6*60*60;
+          this.playing = false;
+      }
         
-      function ParticleSet(particle, amount){
-          this.particles = (()=>{
-              var particles = [];
-              var i = amount;
-              var colorIndex = 0;
-              while(i--){
-                  particles.push(new Particle(particle.path, particle.radius, drawBack.colors[colorIndex]));
-                  colorIndex = (colorIndex >= drawBack.colors.length-1) ? 0 : colorIndex + 1;
-              }
-              return particles;
-          })();
-      }
-     (function(){
-          this.ejectParticle = function(){
-              return this.particles.pop();
-          }
-          this.isComplete = function(){
-              return !this.particles.length;
-          }
-     }).call(ParticleSet.prototype);
-        
-      function ParticleManager(){
-          this.particles = [];
-          this.particleSets = [];
-          this.clock = false;
-          this.iterations = 0;
-          this.maxIterations = 0;
-      }
       (function(){
-          this.addParticle = function(particle){
-              this.particles.push(particle);
-          };
-          this.addParticleSet = function(particleSet){
-              this.particleSets.push(particleSet)
-          };
-          this.clearParticleArr = function(){
-              this.particles = [];
-          };
-          this.clearParticleSets = function(){
-              this.particleSets = [];
-          };
-          this.injectParticles = function(){
-              var i = this.particleSets.length;
-              while(i--){
-                  var set = this.particleSets[i];
-                  if(set.isComplete()){
-                      this.particleSets.splice(i,1);
-                  }else{
-                      this.addParticle(set.ejectParticle());
-                  }
-              }
-          };
-          this.updateClock = function(){
-              if(this.iterations > this.maxIterations){
-                  this.clearClock();
-              }else{
-                  this.injectParticles();
-                  this.iterations++;
-              }
-              this.setCursorLine();
-          }
-          this.clearClock = function(){
-              this.iterations = 0;
-              this.clock = false;
-          };
-          this.setClock = function(maxIterations){
-              drawBack.animateParticles = true;
-              animateParticles()
-              this.maxIterations = maxIterations;
-              this.clock = true;
-          };
-          this.setCursorLine = function(){
-              drawBack.cursor.style.left =
-                  (this.iterations/this.maxIterations * 100)+"%";
-          };
-          this.draw = function(){
-              var i = this.particles.length;
-              while(i--){
-                  var particle = this.particles[i];
-                  particle.incrementPercent();
-                  if(particle.isComplete()){
-                      this.particles.splice(i,1);
-                  }else{
-                      particle.draw();
-                  }
-              }
-              drawBack.animateParticles = (this.particles.length || this.particleSets.length);
-          };
-      }).call(ParticleManager.prototype)
+        this.incrementTime = function() {
+            this.currentTime += this.increment;
+        };
+        this.setDate = function(date){
+            var startOfMonth = new Date(date.year, date.month-1, 1, 0, 0, 0);
+            var startOfNextMonth = new Date(date.year, date.month, 1, 0, 0, 0);
+            this.currentTime = this.startTime = (startOfMonth.getTime() - startOfMonth.getTimezoneOffset()*60000)/1000;
+            this.endTime = (startOfNextMonth.getTime() - startOfNextMonth.getTimezoneOffset()*60000)/1000;
+        };
+        this.resetMonth = function(){
+            this.currentTime = this.startTime;
+        };
+        this.isFinished = function(){
+            return (this.currentTime >= this.endTime);
+        }
+        this.animate = function(){
+            if(this.animating){
+                this.incrementTime();
+                if(this.isFinished()){
+                    if(this.playing){
+                        incrementMonth();
+                    }else{
+                        this.resetMonth();
+                        this.animating = false;
+                    }
+
+                }
+                this.updateCursor();
+            }
+            particleLayer.setAnimate(this.animating);
+        };
+        this.startAnimation = function(){
+            this.animating = true;
+            particleLayer.setAnimate(true);
+        }
         
-      function animateParticles(){
-          particleContext.clearRect(0, 0, particleLayer.canvas.width, particleLayer.canvas.height);
-          if(drawBack.animateParticles){
-              if(refugees.particles.clock){
-                  refugees.particles.updateClock();
-              }
-              refugees.particles.draw();
-              requestAnimationFrame(animateParticles);
-          }
-      }
-          
+        this.updateCursor = function(){
+           playBack.cursorLine.css('left', Math.round(((this.currentTime - this.startTime) / (this.endTime - this.startTime))*100) + '%');
+        };
+      }).call(Timeline.prototype)
+        
+     
       function calculateRadius(amount){
           return drawBack.particle_size;
-      }
-          
-      function processParticles(){
-          refugees.particles.clearParticleSets();
-          var raw_data = refugees.draw_data.raw;
-          for(var asyl_key in raw_data){
-              var or_data = raw_data[asyl_key][refugees.currentDate.year][refugees.currentDate.month];
-              for(var or_key in or_data){
-                  var amount = or_data[or_key];
-                  if(amount>0){
-                      try{
-                          refugees.particles.addParticleSet(
-                              new ParticleSet(
-                                  new Particle(refugees.paths[or_key][asyl_key]["path"], 
-                                               calculateRadius(amount)), 
-                                  amount));
-                      }catch(error){
-                          console.log("No path between {0} and {1}".format(or_key, asyl_key));
-                      }
-                  }
-              }
-          }
-          refugees.particles.clearClock();
-          refugees.particles.setClock(refugees.largestValue[refugees.currentDate.year][refugees.currentDate.month]);
       }
     
       function upDate(){
         refugees.currentDate = new Date_M_Y($('.cursor').data('month'), $('.cursor').parent().data('year'));
-        drawBack.cursor = document.getElementsByClassName("cursor")[0].getElementsByClassName("line")[0];
-        processParticles()
-        if (!circleLayer.isAnimated())
-            circleLayer.setAnimate(true);
-            setTimeout(function(){
-                if(!playBack.playing){
-                    circleLayer.setAnimate(false);
-                }
-            }, 1500);
+        playBack.cursor = $('.cursor');
+        playBack.cursorLine = $('.cursor .line');
+        
+        // if (!circleLayer.isAnimated())
+        //     circleLayer.setAnimate(true);
+        //     setTimeout(function(){
+        //         if(!playBack.playing){
+        //             circleLayer.setAnimate(false);
+        //         }
+        //     }, 1500);
         updateHoverBox();
+        playBack.timeline.setDate(refugees.currentDate);
+        playBack.timeline.startAnimation();
       }
 
 //       function testAllPaths(){
@@ -463,13 +253,14 @@
       }
 
       function incrementMonth(){
-        var currentCursorIndex = $('.cursor').index('.valid');
-        if(currentCursorIndex < 0 || currentCursorIndex + 1 == $('.valid').length){
-          $('.valid').removeClass('cursor');
-          $('.valid').eq(0).addClass('cursor');
+        var $valid = $('.valid');
+        var currentCursorIndex = playBack.cursor.index('.valid');
+        if(currentCursorIndex < 0 || currentCursorIndex + 1 == $valid.length){
+          $valid.removeClass('cursor');
+          $valid.eq(0).addClass('cursor');
         }else{
-          $('.valid').removeClass('cursor');
-          $('.valid').eq(currentCursorIndex+1).addClass('cursor');
+          $valid.removeClass('cursor');
+          $valid.eq(currentCursorIndex+1).addClass('cursor');
         }
         upDate();
       }
@@ -488,39 +279,18 @@
 
 
       function play(){
-          circleLayer.setAnimate(true);
-          playBack.player = window.setInterval(incrementMonth, 1000);
+          // circleLayer.setAnimate(true);
+          playBack.timeline.playing = true;
+          playBack.timeline.startAnimation();
       }
 
       function pause(){
-        window.clearInterval(playBack.player);
-        playBack.player = null;
-        setTimeout(function(){
-              circleLayer.setAnimate(false);
-          }, 1500);
+        playBack.timeline.playing = false;
+        // setTimeout(function(){
+        //       circleLayer.setAnimate(false);
+        //   }, 1500);
       }
-        
-      function load(url) {
-        return new Promise(function(resolve, reject){
-            var xhr = new XMLHttpRequest();
-            xhr.open('GET', url);
-            xhr.responseType = 'json';
-            xhr.onload = function() {
-              if(xhr.status == 200){
-                  resolve(this.response);
-              }else{
-                  reject(Error(xhr.statusText));
-              }
-            };
-            // Handle network errors
-            xhr.onerror = function() {
-              reject(Error("Network Error"));
-            };
-
-            xhr.send();
-        }); 
-      }
-        
+    
       function updatePath(){
           path_geo = refugees.geo_data.path_geo;
           for(var or_key in path_geo){
@@ -532,96 +302,6 @@
                   refugees.paths[or_key][asyl_key]["path"] = getPathThroughPoints(refugees.paths[or_key][asyl_key]["points"]);
               }
           }
-      }
-        
-      function geo_handler(json_data){
-          prev_shown_origin = {};
-          prev_shown_asylum = {};
-          for(var key in json_data.origin_geo){
-              var lat_long = json_data.origin_geo[key];
-              json_data.origin_geo[key] = new google.maps.LatLng(lat_long.lat, lat_long.lon);
-              prev_shown_origin[key] = 0;
-          }
-          
-          for(var key in json_data.asylum_geo){
-              var lat_long = json_data.asylum_geo[key];
-              json_data.asylum_geo[key] = new google.maps.LatLng(lat_long.lat, lat_long.lon);
-              prev_shown_asylum[key] = 0;
-          }
-          
-          var paths = {};
-          
-          for(var or_key in json_data.path_geo){
-              paths[or_key] = {};
-              var or_data = json_data.path_geo[or_key];
-              for (var asyl_key in or_data){
-                  paths[or_key][asyl_key] = {};
-                  paths[or_key][asyl_key]["points"] = [];
-                  paths[or_key][asyl_key]["path"] = null;
-                  path_array = or_data[asyl_key];
-                  for(var i = 0; i < path_array.length; i++){
-                      var googleLatLong = new google.maps.LatLng(path_array[i].lat, path_array[i].lon);
-                      json_data.path_geo[or_key][asyl_key][i] = googleLatLong;
-                      paths[or_key][asyl_key]["points"].push(null);
-                  }
-              }
-          }
-          
-          refugees.geo_data = json_data;
-          refugees.prev_shown.origin = prev_shown_origin;
-          refugees.prev_shown.asylum = prev_shown_asylum;
-          refugees.paths = paths;
-          console.log(refugees.geo_data, refugees.paths);
-      }
-        
-      function draw_handler(json_data){ 
-          refugees.deaths = json_data["deaths"];
-          refugees.deaths = $.extend(true, {}, json_data)["deaths"];
-          refugees.prev_shown["deaths"] = 0;
-          refugees.deaths["location"] = new google.maps.LatLng(39.639537564366684,4.21875);
-          delete json_data["deaths"]
-          var dx_data = $.extend(true, {}, json_data);
-          for(var asyl_country in json_data){
-              var years_data = json_data[asyl_country];
-              for (var year in years_data){
-                  if(!(year in refugees.largestValue)){
-                      refugees.largestValue[year] = {};
-                  }
-                  var year_data = years_data[year];
-                  for (var month in year_data){
-                      if(!(month in refugees.largestValue[year])){
-                          refugees.largestValue[year][month] = 0;
-                      }
-                      $('#m'+month+'y'+year).addClass('valid');
-                      var origin_countries = year_data[month];
-                      var total = 0;
-                      for(var or_key in origin_countries){
-                          var currentVal = json_data[asyl_country][year][month][or_key];
-                          if(month != 1 || year != 2014){
-                              var prevVal = (month == 1) ? 
-                                  json_data[asyl_country][year-1][12][or_key] : dx_data[asyl_country][year][month-1][or_key]
-                              dx_data[asyl_country][year][month][or_key] = currentVal - prevVal;
-                          }
-                          total += currentVal;
-                          currentLargest = refugees.largestValue[year][month];
-                          refugees.largestValue[year][month] = (currentVal > currentLargest) ? currentVal : currentLargest;
-                      }
-                  }
-              }
-          }
-          
-          var largestOfAll = 0;
-          for(var year in refugees.largestValue){
-              for (var month in refugees.largestValue[year]){
-                  var value = refugees.largestValue[year][month];
-                  largestOfAll = (value > largestOfAll) ? value : largestOfAll;
-              }
-          }
-          
-          refugees.largestValue["largestOfAll"] = largestOfAll;
-          refugees.draw_data.raw = json_data;
-          refugees.draw_data.derivative = dx_data;
-          console.log(refugees.draw_data, refugees.deaths);
       }
       
       Number.prototype.clamp = function(min, max) {
@@ -658,26 +338,125 @@
         circleContext.stroke();
       }
         
-      function resize(){
+      function canvasResize(){
       }
-      
         
-      function particleUpdate(){
-          var mapProjection = map.getProjection()
-          var canvasWidth = circleLayer.canvas.width;
-          var canvasHeight = circleLayer.canvas.height;
-          // particleContext.clearRect(0, 0, canvasWidth, canvasHeight);
-          
-          particleContext.setTransform(1, 0, 0, 1, 0, 0);
-          drawBack.spriteContext.setTransform(1, 0, 0, 1, 0, 0);
-          var scale = (1 << map.zoom) * resolutionScale;
-          particleContext.scale(scale, scale);
-          drawBack.spriteContext.scale(scale, scale);
-          var offset = mapProjection.fromLatLngToPoint(particleLayer.getTopLeft());
-          particleContext.translate(-offset.x, -offset.y);
-      }
+      function glResize(){
+        console.log('resizeHandler');
+        var w = gl.canvas.width;
+        var h = gl.canvas.height;
+        gl.viewport(0, 0, w, h);
 
-      function update() {
+        // matrix which maps pixel coordinates to WebGL coordinates
+        pixelsToWebGLMatrix.set([2/w, 0,   0, 0,
+          0,  -2/h, 0, 0,
+          0,   0,   0, 0,
+         -1,   1,   0, 1]);
+      }
+        
+      function translateMatrix(matrix, tx, ty) {
+        matrix[12] += matrix[0]*tx + matrix[4]*ty;
+        matrix[13] += matrix[1]*tx + matrix[5]*ty;
+        matrix[14] += matrix[2]*tx + matrix[6]*ty;
+        matrix[15] += matrix[3]*tx + matrix[7]*ty;
+      }
+        
+      function scaleMatrix(matrix, scaleX, scaleY) {
+        matrix[0] *= scaleX;
+        matrix[1] *= scaleX;
+        matrix[2] *= scaleX;
+        matrix[3] *= scaleX;
+
+        matrix[4] *= scaleY;
+        matrix[5] *= scaleY;
+        matrix[6] *= scaleY;
+        matrix[7] *= scaleY;
+      }
+        
+       function draw(transform) {
+        if (refugees.ready) {
+
+          gl.useProgram(program);
+
+          //var pointSize = countryPointSizePixels * Math.pow(blockPointSizePixels / countryPointSizePixels, (map.zoom - 7) / (21 - 7));
+          var pointSize = Math.floor( ((20-5) * (map.zoom - 0) / (21 - 0)) + 5 );
+          var sizeLoc = gl.getUniformLocation(program, 'uSize');
+          gl.uniform1f(sizeLoc, pointSize);
+
+          var matrixLoc = gl.getUniformLocation(program, 'uMapMatrix');
+          gl.uniformMatrix4fv(matrixLoc, false, transform);
+
+          var epochLoc = gl.getUniformLocation(program, 'uEpoch');
+          gl.uniform1f(epochLoc, playBack.timeline.currentTime);
+
+          // var spanLoc = gl.getUniformLocation(program, 'uSpan');
+          // gl.uniform1f(spanLoc, playBack.timeline.span);
+
+          gl.bindBuffer(gl.ARRAY_BUFFER, refugees.arrayBuffer);
+
+        var attributeLoc = gl.getAttribLocation(program, 'aStartPoint');
+        gl.enableVertexAttribArray(attributeLoc);
+        gl.vertexAttribPointer(attributeLoc, 2, gl.FLOAT, false, 32, 0);
+
+        var attributeLoc = gl.getAttribLocation(program, 'aEndPoint');
+        gl.enableVertexAttribArray(attributeLoc);
+        gl.vertexAttribPointer(attributeLoc, 2, gl.FLOAT, false, 32, 8);
+
+        var attributeLoc = gl.getAttribLocation(program, 'aMidPoint');
+        gl.enableVertexAttribArray(attributeLoc);
+        gl.vertexAttribPointer(attributeLoc, 2, gl.FLOAT, false, 32, 16);
+
+        var attributeLoc = gl.getAttribLocation(program, 'aEpoch');
+        gl.enableVertexAttribArray(attributeLoc);
+        gl.vertexAttribPointer(attributeLoc, 1, gl.FLOAT, false, 32, 24);
+        
+        var attributeLoc = gl.getAttribLocation(program, 'aSpan');
+        gl.enableVertexAttribArray(attributeLoc);
+        gl.vertexAttribPointer(attributeLoc, 1, gl.FLOAT, false, 32, 28);
+
+//         var attributeLoc = gl.getAttribLocation(program, 'aCoo');
+//         gl.enableVertexAttribArray(attributeLoc);
+//         gl.vertexAttribPointer(attributeLoc, 1, gl.FLOAT, false, 36, 28);
+
+//         var attributeLoc = gl.getAttribLocation(program, 'aCor');
+//         gl.enableVertexAttribArray(attributeLoc);
+//         gl.vertexAttribPointer(attributeLoc, 1, gl.FLOAT, false, 36, 32);
+
+
+//         var year = new Date(timeSlider.getCurrentTime()).getFullYear();
+
+//         var count;
+//         if (year < 2001) {
+//           year = 2001;
+//         }
+//          if (year != 2013) {
+//           count = refugees.pointIdx[year]['count'] + refugees.pointIdx[year+1]['count'];
+//          } else {
+//           count = refugees.pointIdx[year]['count'];
+
+//          }
+//           gl.drawArrays(gl.POINTS, refugees.pointIdx[year]['start'], count);
+//           //gl.drawArrays(gl.POINTS, 0, refugees.pointCount);
+//         }
+          gl.drawArrays(gl.POINTS, 0, refugees.pointCount);
+          }
+           
+       }
+      function particleUpdate(){
+          if(refugees.ready){
+              gl.clear(gl.COLOR_BUFFER_BIT);
+              var mapProjection = map.getProjection();
+              mapMatrix.set(pixelsToWebGLMatrix);
+              var scale = particleLayer.getMapScale();
+              scaleMatrix(mapMatrix, scale, scale);
+              var translation = particleLayer.getMapTranslation();
+              translateMatrix(mapMatrix, translation.x, translation.y);
+              draw(mapMatrix);
+              playBack.timeline.animate();
+          }
+      }
+        
+      function circleUpdate() {
         var mapProjection = map.getProjection()
         var canvasWidth = circleLayer.canvas.width;
         var canvasHeight = circleLayer.canvas.height;
@@ -838,8 +617,8 @@
           var hoverHTML = [];
           hoverHTML.push('<div id="hoverbox">');
           if(!$.isEmptyObject(drawBack.hover)){
-              var year = refugees.currentDate.year;
-              var month = refugees.currentDate.month;
+              var year = refugees.currentDate.year || 2014;
+              var month = refugees.currentDate.month || 1;
 
               var name = drawBack.hover.name;
               switch(drawBack.hover.type){
@@ -882,7 +661,7 @@
           }
           var dateString = '';
           switch(month){
-              case 1:
+              case 1: 
                   dateString = "January ";
                   break;
               case 2:
@@ -1112,7 +891,7 @@
         return new google.maps.Map(mapDiv, mapOptions);
       }
         
-      function initCanvasLayer(updateHandler, animated){
+      function initCanvasLayer(updateHandler, animated, resize){
         // initialize the canvasLayer
         var canvasLayerOptions = {
           map: map,
@@ -1123,52 +902,192 @@
         };
         return new CanvasLayer(canvasLayerOptions);
       }
+        
+      function load(url, responseType) {
+        return new Promise(function(resolve, reject){
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', url);
+            xhr.responseType = responseType;
+            xhr.onload = function() {
+              if(xhr.status == 200){
+                  resolve(this.response);
+              }else{
+                  reject(Error(xhr.statusText));
+              }
+            };
+            // Handle network errors
+            xhr.onerror = function() {
+              reject(Error("Network Error"));
+            };
+
+            xhr.send();
+        }); 
+      }
+        
+      function geo_handler(json_data){
+          prev_shown_origin = {};
+          prev_shown_asylum = {};
+          for(var key in json_data.origin_geo){
+              var lat_long = json_data.origin_geo[key];
+              json_data.origin_geo[key] = new google.maps.LatLng(lat_long.lat, lat_long.lon);
+              prev_shown_origin[key] = 0;
+          }
+          
+          for(var key in json_data.asylum_geo){
+              var lat_long = json_data.asylum_geo[key];
+              json_data.asylum_geo[key] = new google.maps.LatLng(lat_long.lat, lat_long.lon);
+              prev_shown_asylum[key] = 0;
+          }
+          
+          var paths = {};
+          
+          for(var or_key in json_data.path_geo){
+              paths[or_key] = {};
+              var or_data = json_data.path_geo[or_key];
+              for (var asyl_key in or_data){
+                  paths[or_key][asyl_key] = {};
+                  paths[or_key][asyl_key]["points"] = [];
+                  paths[or_key][asyl_key]["path"] = null;
+                  path_array = or_data[asyl_key];
+                  for(var i = 0; i < path_array.length; i++){
+                      var googleLatLong = new google.maps.LatLng(path_array[i].lat, path_array[i].lon);
+                      json_data.path_geo[or_key][asyl_key][i] = googleLatLong;
+                      paths[or_key][asyl_key]["points"].push(null);
+                  }
+              }
+          }
+          
+          refugees.geo_data = json_data;
+          refugees.prev_shown.origin = prev_shown_origin;
+          refugees.prev_shown.asylum = prev_shown_asylum;
+          refugees.paths = paths;
+          console.log(refugees.geo_data, refugees.paths);
+      }
+        
+      function circles_handler(json_data){ 
+          refugees.deaths = json_data["deaths"];
+          refugees.deaths = $.extend(true, {}, json_data)["deaths"];
+          refugees.prev_shown["deaths"] = 0;
+          refugees.deaths["location"] = new google.maps.LatLng(39.639537564366684,4.21875);
+          delete json_data["deaths"]
+          var dx_data = $.extend(true, {}, json_data);
+          for(var asyl_country in json_data){
+              var years_data = json_data[asyl_country];
+              for (var year in years_data){
+                  if(!(year in refugees.largestValue)){
+                      refugees.largestValue[year] = {};
+                  }
+                  var year_data = years_data[year];
+                  for (var month in year_data){
+                      if(!(month in refugees.largestValue[year])){
+                          refugees.largestValue[year][month] = 0;
+                      }
+                      $('#m'+month+'y'+year).addClass('valid');
+                      var origin_countries = year_data[month];
+                      var total = 0;
+                      for(var or_key in origin_countries){
+                          var currentVal = json_data[asyl_country][year][month][or_key];
+                          if(month != 1 || year != 2014){
+                              var prevVal = (month == 1) ? 
+                                  json_data[asyl_country][year-1][12][or_key] : dx_data[asyl_country][year][month-1][or_key]
+                              dx_data[asyl_country][year][month][or_key] = currentVal - prevVal;
+                          }
+                          total += currentVal;
+                          currentLargest = refugees.largestValue[year][month];
+                          refugees.largestValue[year][month] = (currentVal > currentLargest) ? currentVal : currentLargest;
+                      }
+                  }
+              }
+          }
+          
+          var largestOfAll = 0;
+          for(var year in refugees.largestValue){
+              for (var month in refugees.largestValue[year]){
+                  var value = refugees.largestValue[year][month];
+                  largestOfAll = (value > largestOfAll) ? value : largestOfAll;
+              }
+          }
+          
+          refugees.largestValue["largestOfAll"] = largestOfAll;
+          refugees.draw_data.raw = json_data;
+          refugees.draw_data.derivative = dx_data;
+          console.log(refugees.draw_data, refugees.deaths);
+      }  
+        
+      function setData(buffer) {
+        refugees.pointCount = buffer.length / 8;
+        refugees.data = buffer;
+        refugees.arrayBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, refugees.arrayBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, refugees.data, gl.STATIC_DRAW);
+
+        var attributeLoc = gl.getAttribLocation(program, 'aStartPoint');
+        gl.enableVertexAttribArray(attributeLoc);
+        gl.vertexAttribPointer(attributeLoc, 2, gl.FLOAT, false, 32, 0);
+
+        var attributeLoc = gl.getAttribLocation(program, 'aEndPoint');
+        gl.enableVertexAttribArray(attributeLoc);
+        gl.vertexAttribPointer(attributeLoc, 2, gl.FLOAT, false, 32, 8);
+
+        var attributeLoc = gl.getAttribLocation(program, 'aMidPoint');
+        gl.enableVertexAttribArray(attributeLoc);
+        gl.vertexAttribPointer(attributeLoc, 2, gl.FLOAT, false, 32, 16);
+
+        var attributeLoc = gl.getAttribLocation(program, 'aEpoch');
+        gl.enableVertexAttribArray(attributeLoc);
+        gl.vertexAttribPointer(attributeLoc, 1, gl.FLOAT, false, 32, 24);
+        
+        var attributeLoc = gl.getAttribLocation(program, 'aSpan');
+        gl.enableVertexAttribArray(attributeLoc);
+        gl.vertexAttribPointer(attributeLoc, 1, gl.FLOAT, false, 32, 28);
+
+//         var attributeLoc = gl.getAttribLocation(program, 'aCoo');
+//         gl.enableVertexAttribArray(attributeLoc);
+//         gl.vertexAttribPointer(attributeLoc, 1, gl.FLOAT, false, 36, 28);
+
+//         var attributeLoc = gl.getAttribLocation(program, 'aCor');
+//         gl.enableVertexAttribArray(attributeLoc);
+//         gl.vertexAttribPointer(attributeLoc, 1, gl.FLOAT, false, 36, 32);
+
+        refugees.ready = true;
+      }
+        
+      function particle_handler(array_buffer){
+          setData(new Float32Array(array_buffer));
+      }
       
       function init() {
-        map = initMap();
-        drawBack.particleSpriteSheet = (function(){
-              var spriteSheetCanvas = document.createElement('canvas');
-              var particleSize = drawBack.particle_size;
-              var colors = drawBack.colors;
-              spriteSheetCanvas.width = Math.ceil(particleSize) * colors.length;
-              spriteSheetCanvas.height = Math.ceil(particleSize);
-              var spriteSheetContext = spriteSheetCanvas.getContext("2d");
-              for(var i = 0, len = colors.length; i < len; i++){
-                  var centerX = particleSize/2 + i*particleSize;
-                  var centerY = particleSize/2;
-                  spriteSheetContext.fillStyle = colors[i];
-                  spriteSheetContext.fillRect(centerX, centerY,particleSize, particleSize);
-              }
-              return spriteSheetCanvas;
-          })()
-        drawBack.spriteContext = drawBack.particleSpriteSheet.getContext('2d');
-        load(refugees.geo_url).then(function(response){
-            geo_handler(response);
-        }, function(error){
-            console.error("Failed!", error);
-        }).then(function(){
-            load(refugees.draw_url).then(function(response){
-                draw_handler(response);
-            }, function(error){
-                console.error("Failed!", error);
-            }).then(function(){
-                google.maps.event.addListenerOnce(map, 'idle', function(){
-                    updatePath();
-                    
-                    circleLayer = initCanvasLayer(update, false);
-                    circleContext = circleLayer.canvas.getContext('2d');
-                    
-                    particleLayer = initCanvasLayer(particleUpdate, false);
-                    particleContext = particleLayer.canvas.getContext('2d');
-                    
-                    var el = document.getElementById("loading");
-                    el.style['display'] = 'none';
-                    refugees.currentDate = new Date_M_Y(1,2014);
-                    $('#m1y2014').addClass('cursor');
-                    upDate();
-                });
-                google.maps.event.addListener(map, 'mousemove', processMapHover);
+        Promise.all([load(refugees.geo_url, 'json'), 
+                     load(refugees.draw_url, 'json'),//]) 
+                     load(refugees.particle_url, 'arraybuffer')])
+        .then(function(response){
+           map = initMap();
+           console.log("promise finished");
+           geo_handler(response[0]);
+           circles_handler(response[1]);
+           google.maps.event.addListenerOnce(map, 'idle', function(){
+                updatePath();
+
+                // circleLayer = initCanvasLayer(circleUpdate, false, canvasResize);
+                // circleContext = circleLayer.canvas.getContext('2d');
+
+                particleLayer = initCanvasLayer(particleUpdate, true, glResize);
+                gl = particleLayer.canvas.getContext('experimental-webgl');
+                gl.enable(gl.BLEND);
+                gl.blendFunc( gl.SRC_ALPHA, gl.ONE );
+                glb = new Glb(gl);
+                program = glb.programFromSources(document.getElementById('point-vertex-shader').text,
+                                     document.getElementById('point-fragment-shader').text); 
+                particle_handler(response[2]);
+                var el = document.getElementById("loading");
+                el.style['display'] = 'none';
+                refugees.currentDate = new Date_M_Y(1,2014);
+                $('#m1y2014').addClass('cursor');
+                upDate();
             });
+            google.maps.event.addListener(map, 'mousemove', processMapHover);
+        }).catch(function(err){
+            console.log("Error: " + err);
         });
           
         $('#circle').click(togglePlayPause);
@@ -1213,7 +1132,6 @@
         
       document.addEventListener('DOMContentLoaded', init, false);
       window.addEventListener('resize', function () {  google.maps.event.trigger(map, 'resize') }, false);
-
     </script>
   </head>
   <body>

@@ -142,6 +142,7 @@ function quadraticBezierLength(curve) {
         2 * curve.cntrlPoint.x - 2 * curve.startPoint.x,
         2 * curve.cntrlPoint.y - 2 * curve.startPoint.y
     );
+    
     var A = 4 * (a.x * a.x + a.y * a.y);
     var B = 4 * (a.x * b.x + a.y * b.y);
     var C = b.x * b.x + b.y * b.y;
@@ -151,7 +152,7 @@ function quadraticBezierLength(curve) {
     var A_32 = 2 * A * A_2;
     var C_2 = 2 * Math.sqrt(C);
     var BA = B / A_2;
-
+    
     return (A_32 * Sabc + A_2 * B * (Sabc - C_2) +
         (4 * C * A - B * B) * Math.log((2 * A_2 + BA + Sabc) / (BA + C_2))) / (4 * A_32);
 }
