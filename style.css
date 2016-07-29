@@ -1,0 +1,183 @@
+html, body, #map-div {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: monospace;
+    background-color: rbg(50,50,50);
+}
+
+.noselect {
+    -webkit-touch-callout: none; /* iOS Safari */
+    -webkit-user-select: none;   /* Chrome/Safari/Opera */
+    -khtml-user-select: none;    /* Konqueror */
+    -moz-user-select: none;      /* Firefox */
+    -ms-user-select: none;       /* Internet Explorer/Edge */
+    user-select: none;           /* Non-prefixed version, currently
+                                  not supported by any browser */
+}
+
+#map-div{
+    position: absolute; 
+    top: 0px; 
+    width: 100%; 
+    height: calc(100% - 55px);
+}
+
+#time-slider{
+    position: absolute;  
+    bottom: 0px; 
+    width: 100%; 
+    height: 56px; 
+    background-color: rgb(30,30,30);
+}
+
+.cursor{
+    background-color: rgb(160,160,160) !important;
+}
+
+.trapezoid {
+    border-bottom: 25px solid rgba(255,10,10,.5);
+    border-left: 15px solid transparent;
+    border-right: 15px solid transparent;
+    height: 0;
+    width: 7px;
+    transform: scaleY(-1) translateY(-6px);
+}
+
+.bar{
+    margin-left: 15px;
+    width: 7px;
+    height: 45%;
+    background-color: rgba(255,10,10,.5);
+    transform: translateY(23%);
+}
+
+#play-button{
+    position: relative;
+    float: left;
+    width: 50px;
+    height: 50px;
+    background-color: rgb(30,30,30);
+    border-bottom: 5px rgb(30,30,30);
+}
+
+#circle{
+    position: absolute;
+    width: 70%;
+    height: 70%;
+    -moz-border-radius: 50px/50px;
+    -webkit-border-radius: 50px 50px;
+    border-radius: 50px/50px;
+    border:solid 2px rgb(130,130,130);
+    top: 60%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    transition: background-color .3s;
+}
+
+#circle:hover{
+    background-color: rgb(100,100,100);
+    cursor: pointer;
+}
+
+#circle:hover > .play{
+    border-left: 12px solid rgb(30,30,30);
+}
+
+#circle:hover > .pause{
+    background-color: rgb(30,30,30);
+}
+
+.play{
+    position: absolute;
+    width: 0; 
+    height: 0; 
+    border-top: 12px solid transparent;
+    border-bottom: 12px solid transparent;
+    border-left: 12px solid rgb(130,130,130);
+    top: 50%;
+    left: 54%;
+    transform: translate(-50%, -50%);
+}
+
+.pause{
+    position: absolute;
+    width: 15px;
+    height: 15px;
+    background-color: rgb(130,130,130);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border: 1px solid black;
+}
+
+.year{
+    position: relative;
+    float: left;
+    width: calc((100% - 50px)/3);
+    height: 50px;
+    /**background-color: blue;**/
+    text-align: center;
+}
+
+.year > p{
+    position: relative; 
+    margin-top: 30px; 
+    text-align: center;
+    font-size: 13px;
+    color: white;
+}
+
+.month{
+    position: relative;
+    height: 50%;
+    width: calc(100%/12);
+    background-color: rgb(20,20,20);
+    float: left;
+    transition: background-color .3s;
+}
+
+.valid{
+    background-color: rgb(60,60,60);
+}
+
+.valid:hover{
+    background-color: rgb(100,100,100);
+    cursor: pointer;
+}
+
+.month > p{
+    font-size: 11px;
+    margin-top: 4px;
+    color: white;
+}
+
+.line {
+/*     transition: left 10ms; */
+}
+
+.cursor > .line {
+    display: block;
+    background-color: red;
+    width: 2px;
+    height: 100%;
+    position: absolute;
+    top: 0px;
+    z-index: 10;
+}
+
+.line {
+    display: none;
+}
+
+
+#loading {
+    background: url(images/loading.gif) no-repeat center;
+    pointer-events: none;
+    position: absolute;
+    height: 50px;
+    width: 50px;
+    z-index: 100;
+    top: 50%;
+    left: 50%;
+}

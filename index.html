@@ -48,7 +48,7 @@
 
         gl_Position = position;
         gl_PointSize = uSize;
-        gl_PointSize = 4.;
+        //gl_PointSize = 3.;
 
       }
     </script>
@@ -151,7 +151,7 @@
           this.currentTime = 0;
           this.startTime = 0;
           this.endTime = 0;
-          this.increment = 6*60*60;
+          this.increment = 3*60*60;
           this.playing = false;
       }
         
@@ -166,7 +166,7 @@
             this.endTime = (startOfNextMonth.getTime() - startOfNextMonth.getTimezoneOffset()*60000)/1000;
         };
         this.resetMonth = function(){
-            this.currentTime = this.startTime;
+            this.currentTime = this.endTime;
         };
         this.isFinished = function(){
             return (this.currentTime >= this.endTime);
@@ -378,8 +378,7 @@
 
           gl.useProgram(program);
 
-          //var pointSize = countryPointSizePixels * Math.pow(blockPointSizePixels / countryPointSizePixels, (map.zoom - 7) / (21 - 7));
-          var pointSize = Math.floor( ((20-5) * (map.zoom - 0) / (21 - 0)) + 5 );
+          var pointSize = 4 * Math.pow(20 / 4, (map.zoom - 3) / (10 - 3));
           var sizeLoc = gl.getUniformLocation(program, 'uSize');
           gl.uniform1f(sizeLoc, pointSize);
 
@@ -496,10 +495,10 @@
                     radius += convert_to_radius(interpolated_raw);
                     refugees.prev_shown["origin"][or_key] = interpolated_raw;
                     //try{
-                        var pointData = path_geo[or_key][asyl_country];
-                        var path = refugees.paths[or_key][asyl_country]["path"];
-                        drawPath(path, 
-                                 path_data[asyl_country][year][month][or_key]);
+                        // var pointData = path_geo[or_key][asyl_country];
+                        // var path = refugees.paths[or_key][asyl_country]["path"];
+                        // drawPath(path, 
+                        //          path_data[asyl_country][year][month][or_key]);
                     //}catch(error){
                         //console.log("No path between {0} and {1}".format(or_key, asyl_country), error);
                     //}
@@ -767,7 +766,7 @@
                             "color": "#000000"
                         },
                         {
-                            "lightness": 20
+                            "lightness": 15
                         }
                     ]
                 },
@@ -794,7 +793,7 @@
                             "color": "#000000"
                         },
                         {
-                            "lightness": 20
+                            "lightness": 15
                         }
                     ]
                 },
@@ -806,7 +805,7 @@
                             "color": "#000000"
                         },
                         {
-                            "lightness": 21
+                            "lightness": 16
                         }
                     ]
                 },
@@ -1068,8 +1067,8 @@
            google.maps.event.addListenerOnce(map, 'idle', function(){
                 updatePath();
 
-                // circleLayer = initCanvasLayer(circleUpdate, false, canvasResize);
-                // circleContext = circleLayer.canvas.getContext('2d');
+//                 circleLayer = initCanvasLayer(circleUpdate, false, canvasResize);
+//                 circleContext = circleLayer.canvas.getContext('2d');
 
                 particleLayer = initCanvasLayer(particleUpdate, true, glResize);
                 gl = particleLayer.canvas.getContext('experimental-webgl');
