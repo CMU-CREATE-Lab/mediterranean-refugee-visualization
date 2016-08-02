@@ -1,6 +1,12 @@
 Visualization
 - scale amount of particles entering country 
 
+WebGL:
+- particle size 
+- deal with the line artifacts created around Greece 
+- color particles
+- particles appear and shrink away
+
 UI
 - hover over month for world events
 
@@ -8,5 +14,3 @@ Errors:
 - Malta doesn't return data from UNCHR API
 
 Optimizations:
-- stop animating when no change on screen
-

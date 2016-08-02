@@ -21,47 +21,92 @@
       attribute vec4 aEndPoint; 
       attribute vec4 aMidPoint; 
       attribute float aEpoch;
+      attribute float aEndTime;
       attribute float aSpan;
       //attribute float aCoo;
       //attribute float aCor;
+      attribute float aTimeOffset;
 
       uniform float uSize;
       uniform float uEpoch;
       //uniform float uSpan;
       uniform mat4 uMapMatrix;
-
+      uniform float uTotalTime;
+      
       vec4 bezierCurve(float t, vec4 P0, vec4 P1, vec4 P2) {
         return (1.0-t)*(1.0-t)*P0 + 2.0*(1.0-t)*t*P1 + t*t*P2;
         //return vec4((1.0 - t)*P0 + t*P2);
         //return P0;
       }
+      
+      vec3 HUEtoRGB(float H){
+        float R = abs((H * 6.) - 3.) - 1.;
+        float G = 2. - abs((H * 6.) - 2.);
+        float B = 2. - abs((H * 6.) - 4.);
+        return clamp(vec3(R,G,B), 0.0, 1.0);
+      }
+      
+    vec3 HSLtoRGB(vec3 HSL){
+        vec3 RGB = HUEtoRGB(HSL.x);
+        float C = (1. - abs(2. * HSL.z - 1.)) * HSL.y;
+        return (RGB - 0.5) * C + HSL.z;
+    }
+    
+    float Epsilon = 1e-10;
+ 
+    vec3 RGBtoHCV(vec3 RGB){
+        // Based on work by Sam Hocevar and Emil Persson
+        vec4 P = (RGB.g < RGB.b) ? vec4(RGB.bg, -1.0, 2.0/3.0) : vec4(RGB.gb, 0.0, -1.0/3.0);
+        vec4 Q = (RGB.r < P.x) ? vec4(P.xyw, RGB.r) : vec4(RGB.r, P.yzx);
+        float C = Q.x - min(Q.w, Q.y);
+        float H = abs((Q.w - Q.y) / (6. * C + Epsilon) + Q.z);
+        return vec3(H, C, Q.x);
+     }
+    
+     vec3 RGBtoHSL(vec3 RGB){
+        vec3 HCV = RGBtoHCV(RGB);
+        float L = HCV.z - HCV.y * 0.5;
+        float S = HCV.y / (1. - abs(L * 2. - 1.) + Epsilon);
+        return vec3(HCV.x, S, L);
+     }
 
-      void main() {
+    vec4 calcColor(float p, vec3 c){
+        vec3 hsl = RGBtoHSL(c);
+        return vec4(HSLtoRGB(vec3(hsl.x, hsl.y, p)), 1.);
+    }
+    
+    varying vec4 vColor;
+
+    void main() {
         vec4 position;
         if (uEpoch < aEpoch || (uEpoch > aEpoch + aSpan)) {
           position = vec4(-1,-1,-1,-1);
-        } else {
-          float t = (uEpoch - aEpoch)/aSpan;
+        }else {
+          float t = (uEpoch - aEpoch)/aSpan + aTimeOffset;
+          t = min(t, 1.);
+          t = max(t,0.);
           vec4 pos = bezierCurve(t, aStartPoint, aMidPoint, aEndPoint);
           position = uMapMatrix * vec4(pos.x, pos.y, 0, 1);
+          float luminance = clamp(1. - ((aEndTime - uEpoch)/uTotalTime), 0.25, 0.6);
+          vColor = calcColor(luminance, vec3(1.,0.,0.));
         }
-
+        
         gl_Position = position;
         gl_PointSize = uSize;
         //gl_PointSize = 3.;
-
-      }
+    }
     </script>
       
       
     <script id="point-fragment-shader" type="x-shader/x-fragment">
       precision mediump float;
-
+      varying vec4 vColor;
+      
       void main() {
           float dist = length(gl_PointCoord.xy - vec2(.5, .5));
           dist = 1. - (dist * 2.);
           dist = max(0., dist);
-          gl_FragColor = vec4(1., 0., 0., 1.) * dist;
+          gl_FragColor = vColor * dist;
       }
     </script>
       
@@ -87,6 +132,7 @@
         data: null,
         arrayBuffer: null,
         geo_data: {},
+        raw_data: {},
         draw_data: {},
         prev_shown: {},
         paths: {},
@@ -138,20 +184,20 @@
           this.year = year;
       }
         
-      var timeEnum = {
-          oneHour: 60*60,
-          twoHours: 2*60*60,
-          threeHours: 3*60*60,
-          sixHours: 6*60*60,
-          oneDay: 24*60*60,
-          twoDays: 2*24*60*60
-      }
-      
       function Timeline(){
+          this.timeEnum = {
+              oneHour: 60*60,
+              twoHours: 2*60*60,
+              threeHours: 3*60*60,
+              sixHours: 6*60*60,
+              oneDay: 24*60*60,
+              twoDays: 2*24*60*60
+          }
+      
           this.currentTime = 0;
           this.startTime = 0;
           this.endTime = 0;
-          this.increment = 3*60*60;
+          this.increment = this.timeEnum.threeHours;
           this.playing = false;
       }
         
@@ -207,13 +253,13 @@
         playBack.cursor = $('.cursor');
         playBack.cursorLine = $('.cursor .line');
         
-        // if (!circleLayer.isAnimated())
-        //     circleLayer.setAnimate(true);
-        //     setTimeout(function(){
-        //         if(!playBack.playing){
-        //             circleLayer.setAnimate(false);
-        //         }
-        //     }, 1500);
+        if (!circleLayer.isAnimated())
+            circleLayer.setAnimate(true);
+            setTimeout(function(){
+                if(!playBack.playing){
+                    circleLayer.setAnimate(false);
+                }
+            }, 1000);
         updateHoverBox();
         playBack.timeline.setDate(refugees.currentDate);
         playBack.timeline.startAnimation();
@@ -279,16 +325,16 @@
 
 
       function play(){
-          // circleLayer.setAnimate(true);
+          circleLayer.setAnimate(true);
           playBack.timeline.playing = true;
           playBack.timeline.startAnimation();
       }
 
       function pause(){
         playBack.timeline.playing = false;
-        // setTimeout(function(){
-        //       circleLayer.setAnimate(false);
-        //   }, 1500);
+        setTimeout(function(){
+              circleLayer.setAnimate(false);
+          }, 1500);
       }
     
       function updatePath(){
@@ -378,9 +424,13 @@
 
           gl.useProgram(program);
 
-          var pointSize = 4 * Math.pow(20 / 4, (map.zoom - 3) / (10 - 3));
+          var pointSize = 3.5  * Math.pow(20 / 4, (map.zoom - 3) / (10 - 3));
           var sizeLoc = gl.getUniformLocation(program, 'uSize');
           gl.uniform1f(sizeLoc, pointSize);
+          
+          var totalTime = 60*60*24*15;
+          var sizeLoc = gl.getUniformLocation(program, 'uTotalTime');
+          gl.uniform1f(sizeLoc, totalTime);
 
           var matrixLoc = gl.getUniformLocation(program, 'uMapMatrix');
           gl.uniformMatrix4fv(matrixLoc, false, transform);
@@ -393,25 +443,35 @@
 
           gl.bindBuffer(gl.ARRAY_BUFFER, refugees.arrayBuffer);
 
-        var attributeLoc = gl.getAttribLocation(program, 'aStartPoint');
-        gl.enableVertexAttribArray(attributeLoc);
-        gl.vertexAttribPointer(attributeLoc, 2, gl.FLOAT, false, 32, 0);
+            var attributeLoc = gl.getAttribLocation(program, 'aStartPoint');
+            gl.enableVertexAttribArray(attributeLoc);
+            gl.vertexAttribPointer(attributeLoc, 2, gl.FLOAT, false, 40, 0);
 
-        var attributeLoc = gl.getAttribLocation(program, 'aEndPoint');
-        gl.enableVertexAttribArray(attributeLoc);
-        gl.vertexAttribPointer(attributeLoc, 2, gl.FLOAT, false, 32, 8);
+            var attributeLoc = gl.getAttribLocation(program, 'aEndPoint');
+            gl.enableVertexAttribArray(attributeLoc);
+            gl.vertexAttribPointer(attributeLoc, 2, gl.FLOAT, false, 40, 8);
 
-        var attributeLoc = gl.getAttribLocation(program, 'aMidPoint');
-        gl.enableVertexAttribArray(attributeLoc);
-        gl.vertexAttribPointer(attributeLoc, 2, gl.FLOAT, false, 32, 16);
+            var attributeLoc = gl.getAttribLocation(program, 'aMidPoint');
+            gl.enableVertexAttribArray(attributeLoc);
+            gl.vertexAttribPointer(attributeLoc, 2, gl.FLOAT, false, 40, 16);
 
-        var attributeLoc = gl.getAttribLocation(program, 'aEpoch');
-        gl.enableVertexAttribArray(attributeLoc);
-        gl.vertexAttribPointer(attributeLoc, 1, gl.FLOAT, false, 32, 24);
-        
-        var attributeLoc = gl.getAttribLocation(program, 'aSpan');
-        gl.enableVertexAttribArray(attributeLoc);
-        gl.vertexAttribPointer(attributeLoc, 1, gl.FLOAT, false, 32, 28);
+            var attributeLoc = gl.getAttribLocation(program, 'aEpoch');
+            gl.enableVertexAttribArray(attributeLoc);
+            gl.vertexAttribPointer(attributeLoc, 1, gl.FLOAT, false, 40, 24);
+
+            
+            var attributeLoc = gl.getAttribLocation(program, 'aEndTime');
+            gl.enableVertexAttribArray(attributeLoc);
+            gl.vertexAttribPointer(attributeLoc, 1, gl.FLOAT, false, 40, 28);
+            
+            
+            var attributeLoc = gl.getAttribLocation(program, 'aSpan');
+            gl.enableVertexAttribArray(attributeLoc);
+            gl.vertexAttribPointer(attributeLoc, 1, gl.FLOAT, false, 40, 32);
+
+            var attributeLoc = gl.getAttribLocation(program, 'aTimeOffset');
+            gl.enableVertexAttribArray(attributeLoc);
+            gl.vertexAttribPointer(attributeLoc, 1, gl.FLOAT, false, 40, 36);
 
 //         var attributeLoc = gl.getAttribLocation(program, 'aCoo');
 //         gl.enableVertexAttribArray(attributeLoc);
@@ -467,74 +527,45 @@
         var offset = mapProjection.fromLatLngToPoint(circleLayer.getTopLeft());
         circleContext.translate(-offset.x, -offset.y);
            
-        //origins
         origin_geo = refugees.geo_data.origin_geo;
         asylum_geo = refugees.geo_data.asylum_geo;
-        path_geo = refugees.geo_data.path_geo;
-        circle_data = refugees.draw_data.raw;
-        path_data = refugees.draw_data.derivative;
+        circle_data = refugees.draw_data;
         var month = refugees.currentDate.month;
         var year = refugees.currentDate.year;
+        
           
-        //origin
         circleContext.lineWidth = drawBack.BASE_STROKE;
-        for(var or_key in origin_geo){
+        var origins = circle_data[year][month]['origin'];
+        var asylums = circle_data[year][month]['asylum'];
+        //origin
+        circleContext.fillStyle = 'rgba(68,153,215, .3)';
+        circleContext.strokeStyle = 'rgb(68,153,215)';
+        for(var i = 0; i < origins.length-1; i+=2){
             var radius = drawBack.BASE_RADIUS;
-            var error = false;
+            var or_key = origins[i];
+            var currentAmount = origins[i+1]
             var originPoint = mapProjection.fromLatLngToPoint(origin_geo[or_key]);
-            var currentAmount = 0;
-            for(var asyl_country in circle_data){
-                var asylumPoint = mapProjection.fromLatLngToPoint(asylum_geo[asyl_country]);
-                if(month in circle_data[asyl_country][year] 
-                   && or_key in circle_data[asyl_country][year][month]){
-                    currentAmount = circle_data[asyl_country][year][month][or_key] || 0;
-                    var prevAmount = refugees.prev_shown["origin"][or_key];
-                    
-                    var interpolated_raw = (currentAmount == prevAmount) ? 
+            var prevAmount = refugees.prev_shown["origin"][or_key];
+            var interpolated_raw = (currentAmount == prevAmount) ? 
                         currentAmount : prevAmount + Math.ceil((currentAmount - prevAmount)/drawBack.origin_interpolate);
-                    radius += convert_to_radius(interpolated_raw);
-                    refugees.prev_shown["origin"][or_key] = interpolated_raw;
-                    //try{
-                        // var pointData = path_geo[or_key][asyl_country];
-                        // var path = refugees.paths[or_key][asyl_country]["path"];
-                        // drawPath(path, 
-                        //          path_data[asyl_country][year][month][or_key]);
-                    //}catch(error){
-                        //console.log("No path between {0} and {1}".format(or_key, asyl_country), error);
-                    //}
-                }else if(!(month in circle_data[asyl_country][year])){
-                    radius = .25;
-                    error = true;
-                } 
-            }
+            radius += convert_to_radius(interpolated_raw);
+            refugees.prev_shown["origin"][or_key] = interpolated_raw;
+            
             radius = (radius < 0) ? .1 : radius;
-  
-            if(!error){
-                circleContext.fillStyle = 'rgba(68,153,215, .3)';
-                circleContext.strokeStyle = 'rgb(68,153,215)';
-            }else{
-                circleContext.fillStyle = 'rgba(180, 180, 180, .3)';
-                circleContext.strokeStyle = 'rgb(180, 180, 180)';
-            }
-             //draws circle at origin country
+            //draws circle at origin country
             circleContext.beginPath();
             circleContext.arc(originPoint.x, originPoint.y,radius, 0, 2 * Math.PI, false);
             circleContext.fill();
-            circleContext.lineWidth = drawBack.BASE_STROKE;
             circleContext.stroke();
         }
           
         //asylum
-          
         circleContext.fillStyle = 'rgba(215, 68, 115, .3)';
         circleContext.strokeStyle = 'rgb(215, 68, 115)';
-        for(var asyl_country in circle_data){
+        for(var i = 0; i < asylums.length-1; i+=2){
             var radius = drawBack.BASE_RADIUS;
-            origin_countries = circle_data[asyl_country][year][month]
-            var total = 0;
-            for (var country in origin_countries){
-                total += (origin_countries[country] || 0)
-            }
+            var asyl_country = asylums[i];
+            var total = asylums[i+1];
             var prevTotal = refugees.prev_shown["asylum"][asyl_country];
             var interpolated_raw = (total == prevTotal) ? 
                         total : prevTotal + Math.ceil((total - prevTotal)/drawBack.asylum_interpolate);
@@ -544,10 +575,10 @@
             var asylumPoint = mapProjection.fromLatLngToPoint(asylum_geo[asyl_country]);
             circleContext.beginPath();
             circleContext.arc(asylumPoint.x, asylumPoint.y,radius, 0, 2 * Math.PI, false);
-            
             circleContext.fill();
             circleContext.stroke();
-        } 
+        }
+          
           
         //deaths
         var currentAmount = refugees.deaths[year][month] || 0;
@@ -624,7 +655,7 @@
                   case "asylum":
                       hoverHTML.push('<p><strong>',name,':</strong> asylum country</p>');
                       var total = 0
-                      var data = refugees.draw_data.raw[name][year][month];
+                      var data = refugees.raw_data.raw[name][year][month];
                       for(var or_key in data){
                           var amount = data[or_key];
                           hoverHTML.push('<p>From <strong>',or_key,'</strong>: ',numberWithCommas(amount),'</p>');
@@ -635,8 +666,8 @@
                   case "origin":
                       hoverHTML.push('<p><strong>',name,':</strong> origin country</p>');
                       var total = 0;
-                      for(var asyl_key in refugees.draw_data.raw){
-                          var data = refugees.draw_data.raw[asyl_key][year][month];
+                      for(var asyl_key in refugees.raw_data.raw){
+                          var data = refugees.raw_data.raw[asyl_key][year][month];
                           if(name in data){
                               var amount = data[name];
                               hoverHTML.push('<p>To <strong>',asyl_key,'</strong>: ',numberWithCommas(amount),'</p>');
@@ -646,7 +677,7 @@
                       hoverHTML.push('<p>Total: ',numberWithCommas(total),'</p>');
                       break;
                   case "deaths":
-                      hoverHTML.push('<p>Deaths: ',numberWithCommas(refugees.deaths[year][month]),'</p>');
+                      hoverHTML.push('<p><strong>Deaths:</strong> ',numberWithCommas(refugees.deaths[year][month]),'</p>');
                       break;
                   default:
                       console.log(drawBack.hover);
@@ -844,7 +875,7 @@
                             "color": "#000000"
                         },
                         {
-                            "lightness": 18
+                            "lightness": 16
                         }
                     ]
                 },
@@ -970,22 +1001,32 @@
           refugees.deaths["location"] = new google.maps.LatLng(39.639537564366684,4.21875);
           delete json_data["deaths"]
           var dx_data = $.extend(true, {}, json_data);
+          var draw_data = {};
           for(var asyl_country in json_data){
               var years_data = json_data[asyl_country];
               for (var year in years_data){
                   if(!(year in refugees.largestValue)){
                       refugees.largestValue[year] = {};
                   }
+                  if(!(year in draw_data)){
+                      draw_data[year] = {};
+                  }
                   var year_data = years_data[year];
                   for (var month in year_data){
                       if(!(month in refugees.largestValue[year])){
                           refugees.largestValue[year][month] = 0;
+                      }
+                      if(!(month in draw_data[year])){
+                          draw_data[year][month] = $.extend(true, {}, refugees.prev_shown);
+                          delete draw_data[year][month]['deaths']
                       }
                       $('#m'+month+'y'+year).addClass('valid');
                       var origin_countries = year_data[month];
                       var total = 0;
                       for(var or_key in origin_countries){
                           var currentVal = json_data[asyl_country][year][month][or_key];
+                          draw_data[year][month]['origin'][or_key] += currentVal;
+                          draw_data[year][month]['asylum'][asyl_country] += currentVal;
                           if(month != 1 || year != 2014){
                               var prevVal = (month == 1) ? 
                                   json_data[asyl_country][year-1][12][or_key] : dx_data[asyl_country][year][month-1][or_key]
@@ -999,6 +1040,23 @@
               }
           }
           
+          for(var year in draw_data){
+              for(var month in draw_data[year]){
+                  var asylums = [];
+                  var origins = [];
+                  for(var asyl_key in draw_data[year][month]['asylum']){
+                      asylums.push(asyl_key, draw_data[year][month]['asylum'][asyl_key]);
+                  }
+                  for(var or_key in draw_data[year][month]['origin']){
+                      origins.push(or_key, draw_data[year][month]['origin'][or_key]);
+                  }
+                  
+                  draw_data[year][month]['asylum'] = asylums;
+                  draw_data[year][month]['origin'] = origins;
+                  
+              }
+          }
+                       
           var largestOfAll = 0;
           for(var year in refugees.largestValue){
               for (var month in refugees.largestValue[year]){
@@ -1008,13 +1066,14 @@
           }
           
           refugees.largestValue["largestOfAll"] = largestOfAll;
-          refugees.draw_data.raw = json_data;
-          refugees.draw_data.derivative = dx_data;
-          console.log(refugees.draw_data, refugees.deaths);
+          refugees.raw_data.raw = json_data;
+          refugees.raw_data.derivative = dx_data;
+          refugees.draw_data = draw_data;
+          console.log(refugees.raw_data, refugees.deaths);
       }  
         
       function setData(buffer) {
-        refugees.pointCount = buffer.length / 8;
+        refugees.pointCount = buffer.length / 10;
         refugees.data = buffer;
         refugees.arrayBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, refugees.arrayBuffer);
@@ -1022,23 +1081,35 @@
 
         var attributeLoc = gl.getAttribLocation(program, 'aStartPoint');
         gl.enableVertexAttribArray(attributeLoc);
-        gl.vertexAttribPointer(attributeLoc, 2, gl.FLOAT, false, 32, 0);
+        gl.vertexAttribPointer(attributeLoc, 2, gl.FLOAT, false, 40, 0);
 
         var attributeLoc = gl.getAttribLocation(program, 'aEndPoint');
         gl.enableVertexAttribArray(attributeLoc);
-        gl.vertexAttribPointer(attributeLoc, 2, gl.FLOAT, false, 32, 8);
+        gl.vertexAttribPointer(attributeLoc, 2, gl.FLOAT, false, 40, 8);
 
         var attributeLoc = gl.getAttribLocation(program, 'aMidPoint');
         gl.enableVertexAttribArray(attributeLoc);
-        gl.vertexAttribPointer(attributeLoc, 2, gl.FLOAT, false, 32, 16);
+        gl.vertexAttribPointer(attributeLoc, 2, gl.FLOAT, false, 40, 16);
 
         var attributeLoc = gl.getAttribLocation(program, 'aEpoch');
         gl.enableVertexAttribArray(attributeLoc);
-        gl.vertexAttribPointer(attributeLoc, 1, gl.FLOAT, false, 32, 24);
-        
+        gl.vertexAttribPointer(attributeLoc, 1, gl.FLOAT, false, 40, 24);
+
+
+        var attributeLoc = gl.getAttribLocation(program, 'aEndTime');
+        gl.enableVertexAttribArray(attributeLoc);
+        gl.vertexAttribPointer(attributeLoc, 1, gl.FLOAT, false, 40, 28);
+
+
         var attributeLoc = gl.getAttribLocation(program, 'aSpan');
         gl.enableVertexAttribArray(attributeLoc);
-        gl.vertexAttribPointer(attributeLoc, 1, gl.FLOAT, false, 32, 28);
+        gl.vertexAttribPointer(attributeLoc, 1, gl.FLOAT, false, 40, 32);
+
+        var attributeLoc = gl.getAttribLocation(program, 'aTimeOffset');
+        gl.enableVertexAttribArray(attributeLoc);
+        gl.vertexAttribPointer(attributeLoc, 1, gl.FLOAT, false, 40, 36);
+
+
 
 //         var attributeLoc = gl.getAttribLocation(program, 'aCoo');
 //         gl.enableVertexAttribArray(attributeLoc);
@@ -1067,8 +1138,8 @@
            google.maps.event.addListenerOnce(map, 'idle', function(){
                 updatePath();
 
-//                 circleLayer = initCanvasLayer(circleUpdate, false, canvasResize);
-//                 circleContext = circleLayer.canvas.getContext('2d');
+                circleLayer = initCanvasLayer(circleUpdate, false, canvasResize);
+                circleContext = circleLayer.canvas.getContext('2d');
 
                 particleLayer = initCanvasLayer(particleUpdate, true, glResize);
                 gl = particleLayer.canvas.getContext('experimental-webgl');
@@ -1083,8 +1154,10 @@
                 refugees.currentDate = new Date_M_Y(1,2014);
                 $('#m1y2014').addClass('cursor');
                 upDate();
+                togglePlayPause();
             });
             google.maps.event.addListener(map, 'mousemove', processMapHover);
+            
         }).catch(function(err){
             console.log("Error: " + err);
         });
