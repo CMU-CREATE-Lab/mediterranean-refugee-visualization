@@ -87,7 +87,7 @@
           t = max(t,0.);
           vec4 pos = bezierCurve(t, aStartPoint, aMidPoint, aEndPoint);
           position = uMapMatrix * vec4(pos.x, pos.y, 0, 1);
-          float luminance = clamp(1. - ((aEndTime - uEpoch)/uTotalTime), 0.25, 0.6);
+          float luminance = clamp(1. - ((aEndTime - uEpoch)/uTotalTime), 0.35, 0.75);
           vColor = calcColor(luminance, vec3(1.,0.,0.));
         }
         
@@ -189,6 +189,7 @@
               oneHour: 60*60,
               twoHours: 2*60*60,
               threeHours: 3*60*60,
+              fourHours: 4*60*60,
               sixHours: 6*60*60,
               oneDay: 24*60*60,
               twoDays: 2*24*60*60
@@ -197,7 +198,7 @@
           this.currentTime = 0;
           this.startTime = 0;
           this.endTime = 0;
-          this.increment = this.timeEnum.threeHours;
+          this.increment = this.timeEnum.fourHours;
           this.playing = false;
       }
         
@@ -212,29 +213,27 @@
             this.endTime = (startOfNextMonth.getTime() - startOfNextMonth.getTimezoneOffset()*60000)/1000;
         };
         this.resetMonth = function(){
-            this.currentTime = this.endTime;
+            this.currentTime = this.startTime;
+            this.updateCursor();
+            particleUpdate();
         };
         this.isFinished = function(){
             return (this.currentTime >= this.endTime);
         }
         this.animate = function(){
-            if(this.animating){
+            if(this.playing){
                 this.incrementTime();
                 if(this.isFinished()){
                     if(this.playing){
                         incrementMonth();
-                    }else{
-                        this.resetMonth();
-                        this.animating = false;
                     }
-
                 }
                 this.updateCursor();
             }
-            particleLayer.setAnimate(this.animating);
+            particleLayer.setAnimate(this.playing);
         };
         this.startAnimation = function(){
-            this.animating = true;
+            this.playing = true;
             particleLayer.setAnimate(true);
         }
         
@@ -262,7 +261,7 @@
             }, 1000);
         updateHoverBox();
         playBack.timeline.setDate(refugees.currentDate);
-        playBack.timeline.startAnimation();
+        playBack.timeline.resetMonth();
       }
 
 //       function testAllPaths(){
@@ -424,7 +423,7 @@
 
           gl.useProgram(program);
 
-          var pointSize = 3.5  * Math.pow(20 / 4, (map.zoom - 3) / (10 - 3));
+          var pointSize = 4  * Math.pow(20 / 4, (map.zoom - 3) / (10 - 3));
           var sizeLoc = gl.getUniformLocation(program, 'uSize');
           gl.uniform1f(sizeLoc, pointSize);
           
@@ -600,13 +599,6 @@
       function getClosestElement(testPoint, threshold){
           var closest = {name:"None Found", type:"", latlon: null};
           var closestDist = Number.MAX_VALUE;
-          for(var asyl_key in refugees.geo_data.asylum_geo){
-              var latlon = refugees.geo_data.asylum_geo[asyl_key];
-              var dist = getDistance(latlon, testPoint);
-              if(dist < threshold){
-                  return {name:asyl_key, type:"asylum", latlon:latlon};
-              }
-          }
           for(var or_key in refugees.geo_data.origin_geo){
               var latlon = refugees.geo_data.origin_geo[or_key];
               var dist = getDistance(latlon, testPoint);
@@ -615,7 +607,13 @@
                   return {name:or_key, type:"origin", latlon:latlon};
               }
           }
-          
+         for(var asyl_key in refugees.geo_data.asylum_geo){
+              var latlon = refugees.geo_data.asylum_geo[asyl_key];
+              var dist = getDistance(latlon, testPoint);
+              if(dist < threshold){
+                  return {name:asyl_key, type:"asylum", latlon:latlon};
+              }
+          }
           var latlon = refugees.deaths.location;
           var dist = getDistance(latlon, testPoint);
           
@@ -661,7 +659,7 @@
                           hoverHTML.push('<p>From <strong>',or_key,'</strong>: ',numberWithCommas(amount),'</p>');
                           total += amount;
                       }
-                      hoverHTML.push('<p>Total: ',numberWithCommas(total),'</p>');
+                      hoverHTML.push('<p><strong>Total:</strong> ',numberWithCommas(total),'</p>');
                       break;
                   case "origin":
                       hoverHTML.push('<p><strong>',name,':</strong> origin country</p>');
@@ -674,7 +672,7 @@
                               total += amount;
                           }  
                       }
-                      hoverHTML.push('<p>Total: ',numberWithCommas(total),'</p>');
+                      hoverHTML.push('<p><strong>Total:</strong> ',numberWithCommas(total),'</p>');
                       break;
                   case "deaths":
                       hoverHTML.push('<p><strong>Deaths:</strong> ',numberWithCommas(refugees.deaths[year][month]),'</p>');
