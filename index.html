@@ -215,7 +215,11 @@
         this.resetMonth = function(){
             this.currentTime = this.startTime;
             this.updateCursor();
-            particleUpdate();
+            try{
+                particleUpdate();
+            }catch(err){
+                console.log("initial call");
+            }
         };
         this.isFinished = function(){
             return (this.currentTime >= this.endTime);
@@ -1151,8 +1155,8 @@
                 el.style['display'] = 'none';
                 refugees.currentDate = new Date_M_Y(1,2014);
                 $('#m1y2014').addClass('cursor');
-                upDate();
                 togglePlayPause();
+                upDate();
             });
             google.maps.event.addListener(map, 'mousemove', processMapHover);
             
