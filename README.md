@@ -10,3 +10,6 @@ https://developers.google.com/public-data/docs/canonical/countries_csv
 
 Deaths:
 http://missingmigrants.iom.int/mediterranean
+
+Author: Sufyan Abbasi sufyanAbbasi
+WebGL Code Inspiration Gabriel O'Donnel gabrielo
