@@ -23,20 +23,15 @@
       attribute float aEpoch;
       attribute float aEndTime;
       attribute float aSpan;
-      //attribute float aCoo;
-      //attribute float aCor;
       attribute float aTimeOffset;
 
       uniform float uSize;
       uniform float uEpoch;
-      //uniform float uSpan;
       uniform mat4 uMapMatrix;
       uniform float uTotalTime;
       
       vec4 bezierCurve(float t, vec4 P0, vec4 P1, vec4 P2) {
         return (1.0-t)*(1.0-t)*P0 + 2.0*(1.0-t)*t*P1 + t*t*P2;
-        //return vec4((1.0 - t)*P0 + t*P2);
-        //return P0;
       }
       
       vec3 HUEtoRGB(float H){
@@ -93,7 +88,6 @@
         
         gl_Position = position;
         gl_PointSize = uSize;
-        //gl_PointSize = 3.;
     }
     </script>
       
@@ -146,6 +140,7 @@
           playing: false,
           player: null,
           mouseDown: false,
+          mouseDownTimer: null,
           timeline: new Timeline(),
           cursor: null,
           cursorLine: null
@@ -212,14 +207,20 @@
             this.currentTime = this.startTime = (startOfMonth.getTime() - startOfMonth.getTimezoneOffset()*60000)/1000;
             this.endTime = (startOfNextMonth.getTime() - startOfNextMonth.getTimezoneOffset()*60000)/1000;
         };
+        this.setTime = function(percent){
+            this.currentTime = (percent*(this.endTime - this.startTime)) + this.startTime;
+            this.updateCursor();
+        }
         this.resetMonth = function(){
             this.currentTime = this.startTime;
             this.updateCursor();
-            try{
-                particleUpdate();
-            }catch(err){
-                console.log("initial call");
-            }
+            requestAnimationFrame(function(){
+                try{
+                    particleUpdate();
+                }catch(err){
+                    console.log("initial call");
+                }
+            });
         };
         this.isFinished = function(){
             return (this.currentTime >= this.endTime);
@@ -239,7 +240,7 @@
         this.startAnimation = function(){
             this.playing = true;
             particleLayer.setAnimate(true);
-        }
+        };
         
         this.updateCursor = function(){
            playBack.cursorLine.css('left', Math.round(((this.currentTime - this.startTime) / (this.endTime - this.startTime))*100) + '%');
@@ -751,6 +752,16 @@
           center: new google.maps.LatLng(34.17497, 22.09833),
           mapTypeId: google.maps.MapTypeId.TERRAIN,
           keyboardShortcuts: false,
+          zoomControl: true,
+          zoomControlOptions: {
+              position: google.maps.ControlPosition.RIGHT_BOTTOM
+          },
+          scaleControl: true,
+          scaleControlOptions: {
+              position: google.maps.ControlPosition.RIGHT_BOTTOM
+          },
+          streetViewControl: false,
+          mapTypeControl: false,
           styles: [
                 {
                     "featureType": "all",
@@ -1165,29 +1176,44 @@
         });
           
         $('#circle').click(togglePlayPause);
+          
+          
         $('.year').on("mousedown", ".valid", function(event){
-                playBack.mouseDown = true;
-                $('.valid').removeClass('cursor');
-                $(this).addClass('cursor');
-                upDate();
+            playBack.mouseDown = true;
+            clearTimeout(playBack.mouseDownTimer);
+            $('.valid').removeClass('cursor');
+            $(this).addClass('cursor');
+            upDate();
+            playBack.mouseDownTimer = setTimeout(function(){
+                if(playBack.mouseDown){
+                    var parentOffset = $('.cursor').offset();
+                    var relX = event.pageX - parentOffset.left;
+                    playBack.timeline.setTime(relX/$('.cursor').width());
+                    requestAnimationFrame(particleUpdate);
+                }
+            }, 500);
         })
         .on("mousemove", ".valid", function(event){
+          clearTimeout(playBack.mouseDownTimer);
           if(playBack.mouseDown){
             $('.valid').removeClass('cursor');
             $(this).addClass('cursor');
             upDate();
+            var parentOffset = $(this).offset();
+            var relX = event.pageX - parentOffset.left;
+            playBack.timeline.setTime(relX/$(this).width());
+            requestAnimationFrame(particleUpdate);
           }
         })
-        .on("mouseup", ".valid", function(){
-              playBack.mouseDown = false;
+        .on("mouseup", ".valid", function(event){
+            clearTimeout(playBack.mouseDownTimer);
+            playBack.mouseDown = false;
         })
         .addClass('noselect');
 
-
-        $('.year').addClass('noselect');
-
-        $('document').on("mouseup", function(){
-              playBack.mouseDown = false;
+        $('body').on("mouseup", function(){
+          clearTimeout(playBack.mouseDownTimer);
+          playBack.mouseDown = false;
         });
           
         $('body').keyup(function(e){
