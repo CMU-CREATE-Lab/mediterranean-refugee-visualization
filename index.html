@@ -218,7 +218,7 @@
                 try{
                     particleUpdate();
                 }catch(err){
-                    console.log("initial call");
+                    console.log("Not ready yet.");
                 }
             });
         };
@@ -1168,68 +1168,79 @@
                 $('#m1y2014').addClass('cursor');
                 togglePlayPause();
                 upDate();
+        
+               $('#circle').click(togglePlayPause);
+          
+          
+                $('.year').on("mousedown", ".valid", function(event){
+                    playBack.mouseDown = true;
+                    clearTimeout(playBack.mouseDownTimer);
+                    $('.valid').removeClass('cursor');
+                    $(this).addClass('cursor');
+                    upDate();
+                    playBack.mouseDownTimer = setTimeout(function(){
+                        if(playBack.mouseDown){
+                            var parentOffset = $('.cursor').offset();
+                            var relX = event.pageX - parentOffset.left;
+                            playBack.timeline.setTime(relX/$('.cursor').width());
+                            requestAnimationFrame(function(){
+                                try{
+                                    particleUpdate();
+                                }catch(err){
+                                    console.log("Not ready yet.");
+                                }
+                            });
+                        }
+                    }, 500);
+                })
+                .on("mousemove", ".valid", function(event){
+                  clearTimeout(playBack.mouseDownTimer);
+                  if(playBack.mouseDown){
+                    $('.valid').removeClass('cursor');
+                    $(this).addClass('cursor');
+                    upDate();
+                    var parentOffset = $(this).offset();
+                    var relX = event.pageX - parentOffset.left;
+                    playBack.timeline.setTime(relX/$(this).width());
+                    requestAnimationFrame(function(){
+                        try{
+                            particleUpdate();
+                        }catch(err){
+                            console.log("Not ready yet.");
+                        }
+                    });
+                  }
+                })
+                .on("mouseup", ".valid", function(event){
+                    clearTimeout(playBack.mouseDownTimer);
+                    playBack.mouseDown = false;
+                })
+                .addClass('noselect');
+
+                $('body').on("mouseup", function(){
+                  clearTimeout(playBack.mouseDownTimer);
+                  playBack.mouseDown = false;
+                });
+
+                $('body').keyup(function(e){
+                   if(e.keyCode == 32){
+                       // space bar
+                       togglePlayPause();
+                   }else if(e.keyCode == 37){
+                       //left arrow
+                       decrementMonth();
+                   }else if(e.keyCode == 39){
+                       //right arrow
+                       incrementMonth();
+                   }
+                });
             });
             google.maps.event.addListener(map, 'mousemove', processMapHover);
             
         }).catch(function(err){
             console.log("Error: " + err);
         });
-          
-        $('#circle').click(togglePlayPause);
-          
-          
-        $('.year').on("mousedown", ".valid", function(event){
-            playBack.mouseDown = true;
-            clearTimeout(playBack.mouseDownTimer);
-            $('.valid').removeClass('cursor');
-            $(this).addClass('cursor');
-            upDate();
-            playBack.mouseDownTimer = setTimeout(function(){
-                if(playBack.mouseDown){
-                    var parentOffset = $('.cursor').offset();
-                    var relX = event.pageX - parentOffset.left;
-                    playBack.timeline.setTime(relX/$('.cursor').width());
-                    requestAnimationFrame(particleUpdate);
-                }
-            }, 500);
-        })
-        .on("mousemove", ".valid", function(event){
-          clearTimeout(playBack.mouseDownTimer);
-          if(playBack.mouseDown){
-            $('.valid').removeClass('cursor');
-            $(this).addClass('cursor');
-            upDate();
-            var parentOffset = $(this).offset();
-            var relX = event.pageX - parentOffset.left;
-            playBack.timeline.setTime(relX/$(this).width());
-            requestAnimationFrame(particleUpdate);
-          }
-        })
-        .on("mouseup", ".valid", function(event){
-            clearTimeout(playBack.mouseDownTimer);
-            playBack.mouseDown = false;
-        })
-        .addClass('noselect');
-
-        $('body').on("mouseup", function(){
-          clearTimeout(playBack.mouseDownTimer);
-          playBack.mouseDown = false;
-        });
-          
-        $('body').keyup(function(e){
-           if(e.keyCode == 32){
-               // space bar
-               togglePlayPause();
-           }else if(e.keyCode == 37){
-               //left arrow
-               decrementMonth();
-           }else if(e.keyCode == 39){
-               //right arrow
-               incrementMonth();
-           }
-        });
       }
-        
       document.addEventListener('DOMContentLoaded', init, false);
       window.addEventListener('resize', function () {  google.maps.event.trigger(map, 'resize') }, false);
     </script>
