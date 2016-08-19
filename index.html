@@ -159,19 +159,22 @@
           infowindow: null,
           animateParticles: false,
           animationRequestID: null,
-          colors: (function(){
-              var colors = [];
-              var color = chroma('teal');
-              var leftVal = .2;
-              var rightVal = .9;
-              for(var i = leftVal; i < rightVal; i+= .01){
-                  colors.push(color.luminance(i, 'hsl').css());
-              }
-              for(var i = rightVal; i > leftVal; i-= .01){
-                  colors.push(color.luminance(i, 'hsl').css());
-              }
-              return colors;
-          })()
+          colors: {
+              asylum: {
+                  fill: 'rgba(255, 255, 255, .3)',
+                  stroke: 'rgb(255, 255, 255)',
+                  // fill: 'rgba(68,153,215, .3)',
+                  // stroke: 'rgb(68,153,215)',
+              },
+              origin: {
+                  fill: 'rgba(215, 68, 115, .3)',
+                  stroke: 'rgb(215, 68, 115)',
+              },
+              deaths: {
+                  fill: 'rgba(80, 44, 115, .3)',
+                  stroke: 'rgb(80, 44, 115)',
+              },
+          }
       }
         
       function Date_M_Y(month, year){
@@ -541,9 +544,10 @@
         circleContext.lineWidth = drawBack.BASE_STROKE;
         var origins = circle_data[year][month]['origin'];
         var asylums = circle_data[year][month]['asylum'];
+          
         //origin
-        circleContext.fillStyle = 'rgba(68,153,215, .3)';
-        circleContext.strokeStyle = 'rgb(68,153,215)';
+        circleContext.fillStyle = drawBack.colors.origin.fill;
+        circleContext.strokeStyle = drawBack.colors.origin.stroke;
         for(var i = 0; i < origins.length-1; i+=2){
             var radius = drawBack.BASE_RADIUS;
             var or_key = origins[i];
@@ -564,8 +568,8 @@
         }
           
         //asylum
-        circleContext.fillStyle = 'rgba(215, 68, 115, .3)';
-        circleContext.strokeStyle = 'rgb(215, 68, 115)';
+        circleContext.fillStyle = drawBack.colors.asylum.fill;
+        circleContext.strokeStyle = drawBack.colors.asylum.stroke;
         for(var i = 0; i < asylums.length-1; i+=2){
             var radius = drawBack.BASE_RADIUS;
             var asyl_country = asylums[i];
@@ -595,9 +599,9 @@
         var radius = convert_to_radius(interpolated_raw);
         circleContext.beginPath();
         circleContext.arc(deathsPoint.x, deathsPoint.y,radius, 0, 2 * Math.PI, false);
-        circleContext.fillStyle = 'rgba(255, 255, 255, .3)';
+        circleContext.fillStyle = drawBack.colors.deaths.fill;
         circleContext.fill();
-        circleContext.strokeStyle = 'rgb(255, 255, 255)';
+        circleContext.strokeStyle = drawBack.colors.deaths.stroke;
         circleContext.stroke();
       }
       
@@ -1246,6 +1250,13 @@
     </script>
   </head>
   <body>
+    <div id="legend">
+        <ul>
+            <li id='origin-legend'><p>origin</p></li>
+            <li id='asylum-legend'><p>asylum</p></li>
+            <li id='deaths-legend'><p>deaths</p></li>
+        </ul>
+    </div>
     <div id="map-div"></div>
     <div id="time-slider">
         <div id="play-button">
@@ -1298,6 +1309,17 @@
             <div class="month" id="m12y2016" data-month="12"><div class="line"></div><p>Dec</p></div>
             <p>2016</p>
         </div>
+      </div>
+      <div id="stories-window">
+          <div class="hover-tab" id="hover"><p><u>Hover For Stories</u></p></div>
+          <div class="stories-area">
+              <h3>January 2014</h3>
+              <ul class='stories'>
+                  <li class='story'></li>
+                  <li class='story'></li>
+                  <li class='story'></li>
+              </ul>
+          </div>
       </div>
       <div id="loading"></div>
   </body>
