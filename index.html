@@ -431,7 +431,7 @@
 
           gl.useProgram(program);
 
-          var pointSize = 4  * Math.pow(20 / 4, (map.zoom - 3) / (10 - 3));
+          var pointSize = resolutionScale * 4  * Math.pow(20 / 4, (map.zoom - 3) / (10 - 3));
           var sizeLoc = gl.getUniformLocation(program, 'uSize');
           gl.uniform1f(sizeLoc, pointSize);
           
@@ -513,7 +513,7 @@
               gl.clear(gl.COLOR_BUFFER_BIT);
               var mapProjection = map.getProjection();
               mapMatrix.set(pixelsToWebGLMatrix);
-              var scale = particleLayer.getMapScale();
+              var scale = resolutionScale*particleLayer.getMapScale();
               scaleMatrix(mapMatrix, scale, scale);
               var translation = particleLayer.getMapTranslation();
               translateMatrix(mapMatrix, translation.x, translation.y);
