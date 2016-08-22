@@ -34,13 +34,13 @@ function Path(startPoint, curves) {
     this.startPoint = startPoint;
     this.curves = curves || [];
     this.lengthPercentages = getLengthPercentages(this) || [];
-    this.precomputedPoints = (()=>{
+    this.precomputedPoints = (function(){
         var precompPoints = [];
         for(var percent = 0; percent <= 100; percent++){
              precompPoints.push(this.calcPointAtPercentage(percent));
         }
         return precompPoints;
-    })();
+    }).bind(this)();
 }
 
 (function(){
