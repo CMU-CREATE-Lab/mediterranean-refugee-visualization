@@ -222,11 +222,11 @@ html, body, #map-div {
 #stories-window{
     position: absolute;
     width: 250px;
-    bottom: 60px;
+    bottom: 80px;
     max-height: 50%;
 }
 
-#stories-window:hover>.stories-area .story{
+#stories-window:hover>#stories-area .story{
    visibility: visible;
    opacity: 1;
    height: 100px;
@@ -234,20 +234,20 @@ html, body, #map-div {
 
 }
 
-#stories-window:hover>.stories-area .story:after{
+#stories-window:hover>#stories-area .story:after{
    visibility: visible;
    opacity: 1;
    height: ;
 }
 
-.stories-area{
+#stories-area{
     position: absolute;
     bottom: 35px;
     width: 100%;
     background-color: rgba(235,235,235, .85);
 }
 
-.stories-area > h3{
+#stories-area > h3{
     text-align: center;
     margin: 0px;
     padding: 10px;
@@ -280,10 +280,9 @@ html, body, #map-div {
     float: right;
     margin-right: 10px;
     width: 10%;
-    transition: margin-right .1s;
     visibility: hidden;
     opacity: 0;
-    transition: visibility 0s, opacity 0.5s linear;
+    transition: visibility 0s, opacity 0.5s linear, margin-right .1s;
     height: 0px;
 }
 
@@ -292,7 +291,7 @@ html, body, #map-div {
     margin-right: 3px;
 }
 
-.hover-tab{
+#hover-tab{
     background-color: rgba(40,40,40, .85);
     color: rgb(210,210,210);
     text-align: center;
@@ -300,23 +299,11 @@ html, body, #map-div {
     transition: background-color .2s;
 }
 
-.hover-tab:after{
-    content: '';
-    position: absolute;
-    left: 50%;
-    width: 0; 
-    height: 0; 
-    border-left: 15px solid transparent;
-    border-right: 15px solid transparent;
-    border-top: 15px solid rgba(40,40,40, .85);
-    transition: background-color .2s;
-}
-
-.hover-tab:hover{
+#hover-tab:hover{
     background-color: rgba(80,80,80, .85);
 }
 
-.hover-tab:hover+.stories-area .story{
+#hover-tab:hover+#stories-area .story{
    visibility: visible;
    opacity: 1;
    height: 100px;
@@ -324,17 +311,13 @@ html, body, #map-div {
 
 }
 
-.hover-tab:hover+.stories-area .story:after{
+#hover-tab:hover+#stories-area .story:after{
    visibility: visible;
    opacity: 1;
    height: ;
 }
 
-.hover-tab:hover:after{
-    border-top: 15px solid rgba(80,80,80, .85);
-}
-
-.hover-tab > p{
+#hover-tab > p{
     margin: 0px;
     padding: 10px;
 }

@@ -176,6 +176,11 @@
               },
           }
       }
+      
+      var stories = {
+          showHover : false,
+          hideHoverTimer : null,
+      }
         
       function Date_M_Y(month, year){
           this.month = month;
@@ -268,6 +273,7 @@
                 }
             }, 1000);
         updateHoverBox();
+        updateStoryBox();
         playBack.timeline.setDate(refugees.currentDate);
         playBack.timeline.resetMonth();
       }
@@ -431,7 +437,7 @@
 
           gl.useProgram(program);
 
-          var pointSize = 4  * Math.pow(20 / 4, (map.zoom - 3) / (10 - 3));
+          var pointSize = resolutionScale * 4  * Math.pow(20 / 4, (map.zoom - 3) / (10 - 3));
           var sizeLoc = gl.getUniformLocation(program, 'uSize');
           gl.uniform1f(sizeLoc, pointSize);
           
@@ -513,7 +519,7 @@
               gl.clear(gl.COLOR_BUFFER_BIT);
               var mapProjection = map.getProjection();
               mapMatrix.set(pixelsToWebGLMatrix);
-              var scale = particleLayer.getMapScale();
+              var scale = resolutionScale * particleLayer.getMapScale();
               scaleMatrix(mapMatrix, scale, scale);
               var translation = particleLayer.getMapTranslation();
               translateMatrix(mapMatrix, translation.x, translation.y);
@@ -746,6 +752,52 @@
               });
               drawBack.infowindow.open(map);
           }
+      }
+        
+      function updateStoryBox(){
+          var year = refugees.currentDate.year || 2014;
+          var month = refugees.currentDate.month || 1;
+          var dateString = '';
+          switch(month){
+              case 1: 
+                  dateString = "January ";
+                  break;
+              case 2:
+                  dateString = "February ";
+                  break;
+              case 3:
+                  dateString = "March ";
+                  break;
+              case 4:
+                  dateString = "April ";
+                  break;
+              case 5:
+                  dateString = "May ";
+                  break;
+              case 6:
+                  dateString = "June ";
+                  break;
+              case 7:
+                  dateString = "July ";
+                  break;
+              case 8:
+                  dateString = "August ";
+                  break;
+              case 9:
+                  dateString = "September ";
+                  break;
+              case 10:
+                  dateString = "October ";
+                  break;
+              case 11:
+                  dateString = "November ";
+                  break;
+              case 12:
+                  dateString = "December ";
+                  break;
+          }
+          
+          $('#stories-area h3').html(dateString + ' '+ year);
       }
         
       function initMap(){
@@ -1310,9 +1362,9 @@
             <p>2016</p>
         </div>
       </div>
-<!--       <div id="stories-window">
-          <div class="hover-tab" id="hover"><p><u>Hover For Stories</u></p></div>
-          <div class="stories-area">
+      <div id="stories-window">
+          <div id="hover-tab"><p><u>Hover For Stories</u></p></div>
+          <div id="stories-area">
               <h3>January 2014</h3>
               <ul class='stories'>
                   <li class='story'></li>
@@ -1320,7 +1372,7 @@
                   <li class='story'></li>
               </ul>
           </div>
-      </div> -->
+      </div>
       <div id="loading"></div>
   </body>
 </html>
