@@ -201,10 +201,6 @@ html, body, #map-div {
     color: white;
 }
 
-.line {
-/*     transition: left 10ms; */
-}
-
 .cursor > .line {
     display: block;
     background-color: red;
@@ -226,71 +222,6 @@ html, body, #map-div {
     max-height: 50%;
 }
 
-#stories-window:hover>#stories-area .story{
-   visibility: visible;
-   opacity: 1;
-   height: 100px;
-   border-width: 4px;
-
-}
-
-#stories-window:hover>#stories-area .story:after{
-   visibility: visible;
-   opacity: 1;
-   height: ;
-}
-
-#stories-area{
-    position: absolute;
-    bottom: 35px;
-    width: 100%;
-    background-color: rgba(235,235,235, .85);
-}
-
-#stories-area > h3{
-    text-align: center;
-    margin: 0px;
-    padding: 10px;
-    border-bottom: 4px solid rgba(150,150,150, .5);
-
-}
-
-.stories{
-    list-style-type: none;
-    padding: 0;
-    margin: 0;
-}
-
-.story{
-    height: 0px;
-    background-color: rgba(235,235,235,.85);
-    line-height: 100px;
-    border-bottom: 4px solid rgba(150,150,150, .5);
-    cursor: pointer;
-    visibility: hidden;
-    opacity: 0;
-    transition: visibility 0s, opacity 0.5s linear;
-    border-width: 0px;
-}
-
-.story:after{
-    content: "\276f";
-    color: rgb(180,180,180);
-    font-size: 25px;
-    float: right;
-    margin-right: 10px;
-    width: 10%;
-    visibility: hidden;
-    opacity: 0;
-    transition: visibility 0s, opacity 0.5s linear, margin-right .1s;
-    height: 0px;
-}
-
-.story:hover:after{
-    color: rgb(150,150,150);
-    margin-right: 3px;
-}
-
 #hover-tab{
     background-color: rgba(40,40,40, .85);
     color: rgb(210,210,210);
@@ -303,24 +234,71 @@ html, body, #map-div {
     background-color: rgba(80,80,80, .85);
 }
 
-#hover-tab:hover+#stories-area .story{
-   visibility: visible;
-   opacity: 1;
-   height: 100px;
-   border-width: 4px;
-
-}
-
-#hover-tab:hover+#stories-area .story:after{
-   visibility: visible;
-   opacity: 1;
-   height: ;
-}
-
 #hover-tab > p{
     margin: 0px;
     padding: 10px;
 }
+
+
+#stories-area{
+    position: absolute;
+    bottom: 35px;
+    width: 100%;
+    background-color: rgba(235,235,235, .85);
+}
+
+#stories-area > h3, .section{
+    text-align: center;
+    margin: 0px;
+    padding: 10px;
+    border-bottom: 4px solid rgba(150,150,150, .5);
+    height: auto;
+}
+
+.stories{
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    overflow: auto;
+    max-height: calc(50vh - 80px);
+}
+
+.story{
+    background-color: rgba(235,235,235,.85);
+    line-height: 100px;
+    border-bottom: 4px solid rgba(150,150,150, .5);
+    cursor: pointer;
+    border-width: 4px;
+    height: 100px;
+    vertical-align: middle;
+}
+
+.story:after{
+    content: "\276f";
+    color: rgb(180,180,180);
+    font-size: 25px;
+    float: right;
+    margin-right: 10px;
+    width: 10%;
+}
+
+.story:hover:after{
+    color: rgb(150,150,150);
+    margin-right: 3px;
+}
+
+.headline{
+    position: relative;
+    float: left;
+    height: 100%;
+    width: 75%;
+    margin: 0px 0px 0px 13px;
+    line-height: 20px;
+    font-size: 15px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 
 #loading {
     background: url(images/loading.gif) no-repeat center;
@@ -331,4 +309,50 @@ html, body, #map-div {
     z-index: 100;
     top: 50%;
     left: 50%;
+}
+
+/* Ordering matters. Placed this below to give these styles precedence */
+
+.hide-show{
+    visibility: hidden;
+    opacity: 0;
+    transition: visibility 0s, opacity 0.5s linear;
+    height: 0px;
+    padding: 0px;
+    border-width: 0px;
+}
+
+.hide-show:after{
+    visibility: hidden;
+    opacity: 0;
+    transition: visibility 0s, opacity 0.5s linear, margin-right .1s;
+    height: 0px;
+    padding: 0px;
+    border-width: 0px;
+}
+
+
+#stories-window:hover .hide-show, #hover-tab:hover+#stories-area .hide-show{
+   visibility: visible;
+   opacity: 1;
+}
+
+#stories-window:hover .hide-show:after, #hover-tab:hover+#stories-area .hide-show:after{
+   visibility: visible;
+   opacity: 1;
+}
+
+#stories-window:hover .hide-show.story, #hover-tab:hover+#stories-area .hide-show.story{
+   height: 100px;
+   border-width: 4px;
+}
+
+#stories-window:hover .hide-show.section, #hover-tab:hover+#stories-area .hide-show.section{
+   height: auto;
+   padding: 10px;
+   border-width: 4px;
+}
+
+#stories-window:hover .hide-show.headline, #hover-tab:hover+#stories-area .hide-show.headline{
+   height: 100%;
 }
